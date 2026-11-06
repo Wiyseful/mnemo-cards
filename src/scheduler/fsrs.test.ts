@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { retrievability } from "./fsrs.js";
-import type { Card} from "./types.js";
+import type { Card } from "./types.js";
+import { nextInterval } from "./fsrs.js";
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 const NOW = 1_700_000_000_000;
@@ -34,5 +35,20 @@ describe("retrievability", () => {
     it("returns 0.9 after exactly S days", () => {
         const card = makeCard({ stability: 10, lastReview: NOW - 10 * MS_PER_DAY });
         expect(retrievability(card, NOW)).toBeCloseTo(0.9);
+    });
+});
+
+describe("nextInterval", () => {
+    it("returns S days at 90% retention", () => {
+        expect(nextInterval(10, 0.9)).toBeCloseTo(10);
+    });
+
+    it("returns a shorter interval for higher retention", () => {
+        expect(nextInterval(10, 0.95)).toBeLessThan(10);
+    });
+
+    it("throws on invalid input", () => {
+        expect(() => nextInterval(0, 0.9)).toThrow();
+        expect(() => nextInterval(10, 1)).toThrow();
     });
 });
