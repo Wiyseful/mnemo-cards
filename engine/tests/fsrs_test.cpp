@@ -58,3 +58,14 @@ TEST(NextInterval, ThrowsOnInvalidInput) {
     EXPECT_THROW(fsrs::nextInterval(10.0, 0.0), std::invalid_argument);
     EXPECT_THROW(fsrs::nextInterval(10.0, 1.0), std::invalid_argument);
 }
+
+
+TEST(InitialState, usesWeightsForStability) {
+    EXPECT_DOUBLE_EQ(fsrs::initialState(fsrs::Rating::Good).stability, 2.3065);
+}
+
+TEST(InitialState, AgainStartsHardest) {
+    EXPECT_NEAR(fsrs::initialState(fsrs::Rating::Again).difficulty, 6.4133, 1e-9);
+    EXPECT_LT(fsrs::initialState(fsrs::Rating::Easy).difficulty,
+              fsrs::initialState(fsrs::Rating::Again).difficulty);
+}

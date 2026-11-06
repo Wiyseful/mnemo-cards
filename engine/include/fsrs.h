@@ -24,4 +24,7 @@ namespace fsrs {
         double stability;
         double difficulty;
     };
+
+    // MemoryState initialState(Rating rating);
+    MemoryState initialState(Rating rating);
 } // namespace fsrs
