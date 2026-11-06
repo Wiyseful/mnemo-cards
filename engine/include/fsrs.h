@@ -1,30 +1,35 @@
 #pragma once
 
 namespace fsrs {
-    // Probability (0 to 1) of recalling a card right now, given its stability
-    // (days until recall drops to 90%) and the days since its last review.
-    // Throws std::invalid_argument if stability <= 0 or daysElapsed < 0.
 
-    double retrievability(double stability, double daysElapsed);
-    // Days to wait before the next review so that recall has dropped to
-    // desiredRetention by then. The inverse of retrievability().
-    // Throws std::invalid_argument if stability <= 0 or desiredRetention
-    // is not strictly between 0 and 1.
-
-    double nextInterval(double stability, double desiredRetention);
-
+    // what the user picked after seeing a card
     enum class Rating {
         Again = 1,
         Hard = 2,
         Good = 3,
-        Easy = 4
+        Easy = 4,
     };
 
+    // stability = days until you have a 90% chance of remembering
+    // difficulty = how hard the card is, 1 to 10
     struct MemoryState {
         double stability;
         double difficulty;
     };
 
-    // MemoryState initialState(Rating rating);
+    // chance (0 to 1) you remember the card right now
+    // throws if stability <= 0 or daysElapsed < 0
+    double retrievability(double stability, double daysElapsed);
+
+    // how many days until the next review
+    // throws if stability <= 0 or desiredRetention isn't between 0 and 1
+    double nextInterval(double stability, double desiredRetention);
+
+    // first time a card is ever reviewed
     MemoryState initialState(Rating rating);
-} // namespace fsrs
+
+    // every review after the first one
+    // throws if stability <= 0, difficulty isn't 1 to 10, or daysElapsed < 0
+    MemoryState review(MemoryState state, double daysElapsed, Rating rating);
+
+}  // namespace fsrs
