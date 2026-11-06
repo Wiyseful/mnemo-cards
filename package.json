@@ -1,0 +1,25 @@
+{
+  "name": "mnemo-cards",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "AI-powered spaced repetition for students: turn lecture slides into flashcards and build shared decks with your class.",
+  "main": "index.js",
+  "scripts": {
+    "vitest": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Wiyseful/mnemo-cards.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Wiyseful/mnemo-cards/issues"
+  },
+  "homepage": "https://github.com/Wiyseful/mnemo-cards#readme",
+  "devDependencies": {
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.0"
+  }
+}
