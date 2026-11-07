@@ -4,25 +4,45 @@ project(mnemo_engine LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# The scheduling engine itself: the code that later compiles to WebAssembly.
+# the engine
 add_library(fsrs src/fsrs.cpp)
 target_include_directories(fsrs PUBLIC include)
 target_compile_options(fsrs PRIVATE -Wall -Wextra -Wpedantic)
 
-# Tests run as normal native C++ (fast, easy to debug).
-# GoogleTest is downloaded automatically unless it is already installed.
-include(FetchContent)
-FetchContent_Declare(
-    googletest
-    URL https://github.com/google/googletest/archive/refs/tags/v1.15.2.tar.gz
-    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
-    FIND_PACKAGE_ARGS NAMES GTest  # use an installed GoogleTest if there is one
-)
-FetchContent_MakeAvailable(googletest)
+if(EMSCRIPTEN)
+    # web build: turns the engine into fsrs.js + fsrs.wasm for the app
+    target_compile_options(fsrs PRIVATE -fwasm-exceptions)
 
-enable_testing()
-add_executable(fsrs_test tests/fsrs_test.cpp)
-target_link_libraries(fsrs_test PRIVATE fsrs GTest::gtest_main)
+    add_executable(fsrs_wasm src/bindings.cpp)
+    target_link_libraries(fsrs_wasm PRIVATE fsrs)
+    target_compile_options(fsrs_wasm PRIVATE -fwasm-exceptions)
+    target_link_options(fsrs_wasm PRIVATE
+        -lembind
+        -fwasm-exceptions
+        -sMODULARIZE=1
+        -sEXPORT_ES6=1
+        -sENVIRONMENT=web,node
+        --emit-tsd fsrs.d.ts
+    )
+    set_target_properties(fsrs_wasm PROPERTIES
+        OUTPUT_NAME fsrs
+        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/../src/engine/generated
+    )
+else()
+    # normal build: run the tests
+    include(FetchContent)
+    FetchContent_Declare(
+        googletest
+        URL https://github.com/google/googletest/archive/refs/tags/v1.15.2.tar.gz
+        DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+        FIND_PACKAGE_ARGS NAMES GTest
+    )
+    FetchContent_MakeAvailable(googletest)
 
-include(GoogleTest)
-gtest_discover_tests(fsrs_test)
+    enable_testing()
+    add_executable(fsrs_test tests/fsrs_test.cpp)
+    target_link_libraries(fsrs_test PRIVATE fsrs GTest::gtest_main)
+
+    include(GoogleTest)
+    gtest_discover_tests(fsrs_test)
+endif()
