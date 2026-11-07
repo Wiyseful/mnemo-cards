@@ -5,7 +5,9 @@
   "description": "AI-powered spaced repetition for students: turn lecture slides into flashcards and build shared decks with your class.",
   "main": "index.js",
   "scripts": {
-    "test": "vitest"
+    "test:engine": "cmake -S engine -B engine/build && cmake --build engine/build && ctest --test-dir engine/build --output-on-failure",
+    "test:app": "vitest run --passWithNoTests",
+    "test": "npm run test:engine && npm run test:app"
   },
   "repository": {
     "type": "git",
