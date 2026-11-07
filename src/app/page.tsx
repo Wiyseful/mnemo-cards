@@ -1,17 +1,19 @@
 "use client";
 
-import { initialState, nextInterval } from "@/engine";
+import {useState} from "react";
+import {sampleCards} from "@/data/sampleCards";
 
 export default function Home() {
-    const state = initialState("Good");
-    const days = nextInterval(state.stability, 0.9);
+    const [flipped, setFlipped] = useState(false);
+    const card = sampleCards[0]!;
 
     return (
-        <main className="p-8">
-            <h1 className="text-2xl font-bold">Mnemo</h1>
-            <p>
-                A new card rated Good has stability {state.stability.toFixed(2)}, so it comes back in {" "}{days.toFixed(2)} days.
-            </p>
+        <main className="min-h-screen flex items-center justify-center bg-gray-50 p-8">
+            <button onClick={() => setFlipped(!flipped)}
+                    className="w-full max-w-md rounded-2xl bg-white p-10 text-center text-xl shadow">
+                {flipped ? card.back : card.front}
+            </button>
+
         </main>
-    )
+    );
 }
