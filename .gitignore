@@ -154,3 +154,6 @@ vite.config.ts.timestamp-*
 # C++ engine build output
 engine/build/
 engine/cmake-build-*/
+
+engine/build-wasm/
+src/engine/generated/
