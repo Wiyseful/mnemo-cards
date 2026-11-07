@@ -61,7 +61,7 @@ namespace fsrs {
             return stability * (1.0 + growth);
         }
 
-        // you forgot it, so stability goes down
+        // user forgot card, so stability goes down
         double nextForgetStability(double stability, double difficulty, double retrievability) {
             const double difficultyFactor = std::pow(difficulty, -W[12]);
             const double stabilityFactor = std::pow(stability + 1.0, W[13]) - 1.0;

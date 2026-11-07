@@ -2,7 +2,7 @@
 
 namespace fsrs {
 
-    // what the user picked after seeing a card
+    // user selects one of these options when picking a card
     enum class Rating {
         Again = 1,
         Hard = 2,
@@ -10,7 +10,7 @@ namespace fsrs {
         Easy = 4,
     };
 
-    // stability = days until you have a 90% chance of remembering
+    // stability = days until you have a 90% chance of recalling
     // difficulty = how hard the card is, 1 to 10
     struct MemoryState {
         double stability;
