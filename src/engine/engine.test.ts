@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { retrievability, nextInterval, initialState, review } from "./index.js";
+import { retrievability, nextInterval, initialState, review } from "./index";
 
 describe("engine (wasm)", () => {
     it("matches the C++ forgetting curve", () => {

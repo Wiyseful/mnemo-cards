@@ -22,7 +22,9 @@ if(EMSCRIPTEN)
         -sMODULARIZE=1
         -sEXPORT_ES6=1
         -sENVIRONMENT=web,node
+        -sSINGLE_FILE=1
         --emit-tsd fsrs.d.ts
+
     )
     set_target_properties(fsrs_wasm PROPERTIES
         OUTPUT_NAME fsrs

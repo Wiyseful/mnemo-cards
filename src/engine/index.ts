@@ -1,6 +1,6 @@
 import createEngine from "./generated/fsrs.js";
 import type { MemoryState } from "./generated/fsrs.js";
-import type { Rating } from "../scheduler/types.js";
+import type { Rating } from "../scheduler/types";
 
 export type { MemoryState };
 

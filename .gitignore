@@ -157,3 +157,6 @@ engine/cmake-build-*/
 
 engine/build-wasm/
 src/engine/generated/
+
+next-env.d.ts
+AGENTS.md
