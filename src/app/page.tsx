@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { sampleCards } from "@/data/sampleCards";
-import { applyRating } from "@/scheduler/applyRating";
-import { findNextDueCard } from "@/scheduler/findNextDueCard";
-import { formatDuration } from "@/scheduler/formatDuration";
-import type { Rating } from "@/scheduler/types";
+import {useEffect, useState} from "react";
+import {sampleCards} from "@/data/sampleCards";
+import {applyRating} from "@/scheduler/applyRating";
+import {findNextDueCard} from "@/scheduler/findNextDueCard";
+import {formatDuration} from "@/scheduler/formatDuration";
+import type {Rating} from "@/scheduler/types";
 import {averageRecallChance} from "@/scheduler/averageRecallChance";
 
 const RATING_BUTTON_CLASSES =
@@ -103,39 +103,47 @@ export default function StudyPage() {
 
     return (
         <main className="relative min-h-screen flex flex-col items-center justify-center bg-gray-50 p-8">
+
+            {/* Stopwatch in top right corner tracking study session */}
             <p className="absolute top-6 right-6 text-xl text-gray-500 tabular-nums">
                 {formatStopwatch(elapsedStudyTimeMs)}
             </p>
-
+            {/* Average of retrievability score of cards in deck */}
             <p className="absolute top-6 left-6 text-xl text-gray-500">
-                Chance you'll remember each card: {averageRetrievability}%
+                Deck recallability: {averageRetrievability}%
             </p>
+            <div className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow">
+                <button onClick={revealAnswer} className="w-full p-10 text-left text-xl">
+                    <p>{currentCard.front}</p>
+                    {isAnswerShown && (
+                        <>
+                            <p className="mt-6 border-t border-gray-200 pt-6">{currentCard.back}</p>
+                            <p className="mt-4 text-sm text-gray-400">
+                                {`${currentCard.reviewCount} ${currentCard.reviewCount === 1 ? "review" : "reviews"}`}
+                            </p>
+                        </>
+                    )}
+                </button>
 
-            <button
-                onClick={revealAnswer}
-                className="w-full max-w-lg rounded-2xl bg-white p-10 text-left text-xl shadow"
-            >
-                <p>{currentCard.front}</p>
                 {isAnswerShown && (
-                    <p className="mt-6 border-t border-gray-200 pt-6">{currentCard.back}</p>
+                    <div className="grid grid-cols-4 divide-x divide-gray-200 border-t border-gray-200">
+                        {(["Again", "Hard", "Good", "Easy"] as const).map((rating) => (
+                            <button
+                                key={rating}
+                                onClick={() => handleRatingClick(rating)}
+                                className="py-3 text-sm hover:bg-gray-50"
+                            >
+                                <span className="block font-medium">{rating}</span>
+                                <span className="block text-xs text-gray-400">{timeUntilDueText(rating)}</span>
+                            </button>
+                        ))}
+                    </div>
                 )}
-            </button>
-
-            {isAnswerShown && (
-                <div className="mt-6 flex gap-2">
-                    <button onClick={() => handleRatingClick("Again")} className={RATING_BUTTON_CLASSES}>
-                        Again · {timeUntilDueText("Again")}
-                    </button>
-                    <button onClick={() => handleRatingClick("Hard")} className={RATING_BUTTON_CLASSES}>
-                        Hard · {timeUntilDueText("Hard")}
-                    </button>
-                    <button onClick={() => handleRatingClick("Good")} className={RATING_BUTTON_CLASSES}>
-                        Good · {timeUntilDueText("Good")}
-                    </button>
-                    <button onClick={() => handleRatingClick("Easy")} className={RATING_BUTTON_CLASSES}>
-                        Easy · {timeUntilDueText("Easy")}
-                    </button>
-                </div>
+            </div>
+            {!isAnswerShown && (
+                <p className="mt-6 rounded-full bg-gray-100 px-5 py-2 text-sm text-gray-400">
+                    Press <kbd className="mx-1 rounded-md border border-gray-300 bg-white px-2 py-0.5 text-xs text-gray-600 shadow-sm">SPACE</kbd> to reveal the answer
+                </p>
             )}
         </main>
     );
