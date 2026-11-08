@@ -3,7 +3,6 @@ import { applyRating } from "./applyRating";
 import { MS_PER_DAY } from "./time";
 import type { Card } from "./types";
 
-// a fixed point in time, so tests give the same result every run
 const TEST_START_TIME_MS = 1_700_000_000_000;
 
 const unstudiedCard: Card = {

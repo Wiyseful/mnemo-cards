@@ -4,16 +4,16 @@ import { MS_PER_DAY, MS_PER_HOUR, MS_PER_MINUTE } from "./time";
 
 describe("formatDuration", () => {
     it("shows minutes under an hour", () => {
-        expect(formatDuration(3 * MS_PER_MINUTE)).toBe("3 min");
+        expect(formatDuration(3 * MS_PER_MINUTE)).toBe("3min");
     });
 
     it("shows hours from one hour up to a day", () => {
-        expect(formatDuration(MS_PER_HOUR)).toBe("1 h");
-        expect(formatDuration(5 * MS_PER_HOUR)).toBe("5 h");
+        expect(formatDuration(MS_PER_HOUR)).toBe("1h");
+        expect(formatDuration(5 * MS_PER_HOUR)).toBe("5h");
     });
 
     it("shows days from one day up", () => {
-        expect(formatDuration(MS_PER_DAY)).toBe("1 d");
-        expect(formatDuration(8 * MS_PER_DAY)).toBe("8 d");
+        expect(formatDuration(MS_PER_DAY)).toBe("1d");
+        expect(formatDuration(8 * MS_PER_DAY)).toBe("8d");
     });
 });

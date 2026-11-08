@@ -6,6 +6,7 @@ import { applyRating } from "@/scheduler/applyRating";
 import { findNextDueCard } from "@/scheduler/findNextDueCard";
 import { formatDuration } from "@/scheduler/formatDuration";
 import type { Rating } from "@/scheduler/types";
+import {averageRecallChance} from "@/scheduler/averageRecallChance";
 
 const RATING_BUTTON_CLASSES =
     "rounded-full border border-gray-200 bg-white px-5 py-2 text-sm shadow-sm hover:bg-gray-100";
@@ -90,6 +91,9 @@ export default function StudyPage() {
     const elapsedStudyTimeMs =
         sessionStartedAtMs === null ? 0 : Math.max(0, currentTimeMs - sessionStartedAtMs);
 
+    // Calculate average retrievability of cards in a deck
+    const averageRetrievability = Math.round(averageRecallChance(cards, currentTimeMs) * 100);
+
     // text like "3 d": how long until the card comes back if this rating is picked
     const timeUntilDueText = (rating: Rating) => {
         const currentTimeMs = Date.now();
@@ -99,13 +103,17 @@ export default function StudyPage() {
 
     return (
         <main className="relative min-h-screen flex flex-col items-center justify-center bg-gray-50 p-8">
-            <p className="absolute top-6 right-6 text-sm text-gray-500 tabular-nums">
+            <p className="absolute top-6 right-6 text-xl text-gray-500 tabular-nums">
                 {formatStopwatch(elapsedStudyTimeMs)}
+            </p>
+
+            <p className="absolute top-6 left-6 text-xl text-gray-500">
+                Chance you'll remember each card: {averageRetrievability}%
             </p>
 
             <button
                 onClick={revealAnswer}
-                className="w-full max-w-md rounded-2xl bg-white p-10 text-center text-xl shadow"
+                className="w-full max-w-lg rounded-2xl bg-white p-10 text-left text-xl shadow"
             >
                 <p>{currentCard.front}</p>
                 {isAnswerShown && (

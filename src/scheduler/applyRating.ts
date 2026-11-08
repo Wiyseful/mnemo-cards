@@ -17,7 +17,7 @@ export function applyRating(card: Card, rating: Rating, currentTimeMs: number): 
         const daysSinceLastReview = (currentTimeMs - card.lastReviewedAt!) / MS_PER_DAY;
         newMemory = review(
             { stability: card.stability!, difficulty: card.difficulty! },
-            Math.max(0, daysSinceLastReview), // never negative, even if the device clock is wrong
+            Math.max(0, daysSinceLastReview),
             rating,
         );
     }
