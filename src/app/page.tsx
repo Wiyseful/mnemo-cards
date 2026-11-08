@@ -10,6 +10,14 @@ import type { Rating } from "@/scheduler/types";
 const RATING_BUTTON_CLASSES =
     "rounded-full border border-gray-200 bg-white px-5 py-2 text-sm shadow-sm hover:bg-gray-100";
 
+// which rating each number key picks
+const RATING_FOR_KEY: Record<string, Rating> = {
+    "1": "Again",
+    "2": "Hard",
+    "3": "Good",
+    "4": "Easy",
+};
+
 // turns a duration into stopwatch text like "4:05"
 function formatStopwatch(durationMs: number): string {
     const totalSeconds = Math.floor(durationMs / 1000);
@@ -24,13 +32,52 @@ export default function StudyPage() {
     const [sessionStartedAtMs, setSessionStartedAtMs] = useState<number | null>(null);
     const [currentTimeMs, setCurrentTimeMs] = useState(Date.now());
 
+    const currentCard = findNextDueCard(cards, Date.now());
+
+    // the session starts the first time an answer is revealed
+    const revealAnswer = () => {
+        if (sessionStartedAtMs === null) {
+            setSessionStartedAtMs(Date.now());
+        }
+        setIsAnswerShown(true);
+    };
+
+    // saves the rated card and moves on to the next one
+    const handleRatingClick = (rating: Rating) => {
+        if (!currentCard) return;
+        const ratedCard = applyRating(currentCard, rating, Date.now());
+        setCards(cards.map((card) => (card.id === currentCard.id ? ratedCard : card)));
+        setIsAnswerShown(false);
+    };
+
     // ticks once a second so the timer on screen keeps counting up
     useEffect(() => {
         const tickIntervalId = setInterval(() => setCurrentTimeMs(Date.now()), 1000);
         return () => clearInterval(tickIntervalId);
     }, []);
 
-    const currentCard = findNextDueCard(cards, Date.now());
+    // keyboard shortcuts: Space reveals the answer, 1-4 rate the card
+    useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (!currentCard) return;
+
+            if (event.code === "Space") {
+                event.preventDefault(); // stop Space from also clicking a focused button or scrolling
+                if (!isAnswerShown) {
+                    revealAnswer();
+                }
+                return;
+            }
+
+            const rating = RATING_FOR_KEY[event.key];
+            if (rating && isAnswerShown) {
+                handleRatingClick(rating);
+            }
+        };
+
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    });
 
     if (!currentCard) {
         return (
@@ -40,23 +87,8 @@ export default function StudyPage() {
         );
     }
 
-    // the session starts the first time an answer is revealed
-    const handleCardClick = () => {
-        if (sessionStartedAtMs === null) {
-            setSessionStartedAtMs(Date.now());
-        }
-        setIsAnswerShown(!isAnswerShown);
-    };
-
     const elapsedStudyTimeMs =
         sessionStartedAtMs === null ? 0 : Math.max(0, currentTimeMs - sessionStartedAtMs);
-
-    // saves the rated card and moves on to the next one
-    const handleRatingClick = (rating: Rating) => {
-        const ratedCard = applyRating(currentCard, rating, Date.now());
-        setCards(cards.map((card) => (card.id === currentCard.id ? ratedCard : card)));
-        setIsAnswerShown(false);
-    };
 
     // text like "3 d": how long until the card comes back if this rating is picked
     const timeUntilDueText = (rating: Rating) => {
@@ -72,7 +104,7 @@ export default function StudyPage() {
             </p>
 
             <button
-                onClick={handleCardClick}
+                onClick={revealAnswer}
                 className="w-full max-w-md rounded-2xl bg-white p-10 text-center text-xl shadow"
             >
                 <p>{currentCard.front}</p>
