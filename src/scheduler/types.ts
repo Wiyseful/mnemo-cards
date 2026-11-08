@@ -12,4 +12,7 @@ export type Card = {
 
     reps: number; // total times card has been reviewed
     lapses: number; // times you forgot the card
+    state: CardState;
 }
+
+export type CardState = "New" | "Learning" | "Review" | "Relearning";

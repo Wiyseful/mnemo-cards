@@ -49,10 +49,13 @@ namespace fsrs {
         double nextRecallStability(double stability, double difficulty, double retrievability,
                                    Rating rating) {
             const double difficultyFactor = 11.0 - difficulty; // higher difficulty means less growth
-            const double stabilityFactor = std::pow(stability, -W[9]); // higher stability means smaller proportional growth
-            const double retrievabilityFactor = std::exp(W[10] * (1.0 - retrievability)) - 1.0; // lower predicted recall means more growth when correct
+            const double stabilityFactor = std::pow(stability, -W[9]);
+            // higher stability means smaller proportional growth
+            const double retrievabilityFactor = std::exp(W[10] * (1.0 - retrievability)) - 1.0;
+            // lower predicted recall means more growth when correct
             const double hardPenalty = (rating == Rating::Hard) ? W[15] : 1.0; // reduces growth when user selects Hard
-            const double easyBonus = (rating == Rating::Easy) ? W[16] : 1.0; // increases growth with a bonus when user selects Easy
+            const double easyBonus = (rating == Rating::Easy) ? W[16] : 1.0;
+            // increases growth with a bonus when user selects Easy
 
             const double growth = std::exp(W[8]) * difficultyFactor * stabilityFactor
                 * retrievabilityFactor * hardPenalty * easyBonus;

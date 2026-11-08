@@ -15,6 +15,7 @@ const newCard: Card = {
     due: 0,
     reps: 0,
     lapses: 0,
+    state: "New"
 };
 
 describe("rateCard", () => {

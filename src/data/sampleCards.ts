@@ -11,6 +11,7 @@ function newCard(id: string, front: string, back: string): Card {
         due: 0,
         reps: 0,
         lapses: 0,
+        state: "New"
     };
 }
 
