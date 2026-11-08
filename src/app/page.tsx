@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { sampleCards } from "@/data/sampleCards";
 import { applyRating } from "@/scheduler/applyRating";
 import { findNextDueCard } from "@/scheduler/findNextDueCard";
@@ -10,9 +10,26 @@ import type { Rating } from "@/scheduler/types";
 const RATING_BUTTON_CLASSES =
     "rounded-full border border-gray-200 bg-white px-5 py-2 text-sm shadow-sm hover:bg-gray-100";
 
+// turns a duration into stopwatch text like "4:05"
+function formatStopwatch(durationMs: number): string {
+    const totalSeconds = Math.floor(durationMs / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+}
+
 export default function StudyPage() {
     const [isAnswerShown, setIsAnswerShown] = useState(false);
     const [cards, setCards] = useState(sampleCards);
+    const [sessionStartedAtMs, setSessionStartedAtMs] = useState<number | null>(null);
+    const [currentTimeMs, setCurrentTimeMs] = useState(Date.now());
+
+    // ticks once a second so the timer on screen keeps counting up
+    useEffect(() => {
+        const tickIntervalId = setInterval(() => setCurrentTimeMs(Date.now()), 1000);
+        return () => clearInterval(tickIntervalId);
+    }, []);
+
     const currentCard = findNextDueCard(cards, Date.now());
 
     if (!currentCard) {
@@ -22,6 +39,17 @@ export default function StudyPage() {
             </main>
         );
     }
+
+    // the session starts the first time an answer is revealed
+    const handleCardClick = () => {
+        if (sessionStartedAtMs === null) {
+            setSessionStartedAtMs(Date.now());
+        }
+        setIsAnswerShown(!isAnswerShown);
+    };
+
+    const elapsedStudyTimeMs =
+        sessionStartedAtMs === null ? 0 : Math.max(0, currentTimeMs - sessionStartedAtMs);
 
     // saves the rated card and moves on to the next one
     const handleRatingClick = (rating: Rating) => {
@@ -38,9 +66,13 @@ export default function StudyPage() {
     };
 
     return (
-        <main className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-8">
+        <main className="relative min-h-screen flex flex-col items-center justify-center bg-gray-50 p-8">
+            <p className="absolute top-6 right-6 text-sm text-gray-500 tabular-nums">
+                {formatStopwatch(elapsedStudyTimeMs)}
+            </p>
+
             <button
-                onClick={() => setIsAnswerShown(!isAnswerShown)}
+                onClick={handleCardClick}
                 className="w-full max-w-md rounded-2xl bg-white p-10 text-center text-xl shadow"
             >
                 <p>{currentCard.front}</p>
