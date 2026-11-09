@@ -30,8 +30,8 @@ jobs:
       - name: Run tests (C++, WebAssembly build, TypeScript)
         run: npm test
 
-      - name: Check types
-        run: npx tsc --noEmit
-
       - name: Build the app
         run: npm run build
+
+      - name: Check types
+        run: npx tsc --noEmit
