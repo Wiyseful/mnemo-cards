@@ -75,43 +75,43 @@ TEST(InitialState, AgainStartsHardest) {
 
 namespace {
 // a typical card that has been studied a few times
-constexpr fsrs::MemoryState kCard{10.0, 5.0};
+constexpr fsrs::MemoryState kTypicalCard{10.0, 5.0};
 }  // namespace
 
 TEST(Review, RememberingGrowsStability) {
     for (auto rating : {fsrs::Rating::Hard, fsrs::Rating::Good, fsrs::Rating::Easy}) {
-        EXPECT_GT(fsrs::review(kCard, 10.0, rating).stability, kCard.stability);
+        EXPECT_GT(fsrs::review(kTypicalCard, 10.0, rating).stability, kTypicalCard.stability);
     }
 }
 
 TEST(Review, BetterRatingsGrowStabilityMore) {
-    const double hard = fsrs::review(kCard, 10.0, fsrs::Rating::Hard).stability;
-    const double good = fsrs::review(kCard, 10.0, fsrs::Rating::Good).stability;
-    const double easy = fsrs::review(kCard, 10.0, fsrs::Rating::Easy).stability;
+    const double hard = fsrs::review(kTypicalCard, 10.0, fsrs::Rating::Hard).stability;
+    const double good = fsrs::review(kTypicalCard, 10.0, fsrs::Rating::Good).stability;
+    const double easy = fsrs::review(kTypicalCard, 10.0, fsrs::Rating::Easy).stability;
     EXPECT_LT(hard, good);
     EXPECT_LT(good, easy);
 }
 
 TEST(Review, ForgettingLowersStability) {
-    EXPECT_LT(fsrs::review(kCard, 10.0, fsrs::Rating::Again).stability, kCard.stability);
+    EXPECT_LT(fsrs::review(kTypicalCard, 10.0, fsrs::Rating::Again).stability, kTypicalCard.stability);
 }
 
 TEST(Review, RememberingWhenCloseToForgettingGrowsMore) {
     // reviewing later = lower retrievability = bigger boost
-    const double onTime = fsrs::review(kCard, 10.0, fsrs::Rating::Good).stability;
-    const double late = fsrs::review(kCard, 30.0, fsrs::Rating::Good).stability;
+    const double onTime = fsrs::review(kTypicalCard, 10.0, fsrs::Rating::Good).stability;
+    const double late = fsrs::review(kTypicalCard, 30.0, fsrs::Rating::Good).stability;
     EXPECT_GT(late, onTime);
 }
 
 TEST(Review, DifficultyMovesWithRating) {
-    EXPECT_GT(fsrs::review(kCard, 10.0, fsrs::Rating::Again).difficulty, kCard.difficulty);
-    EXPECT_GT(fsrs::review(kCard, 10.0, fsrs::Rating::Hard).difficulty, kCard.difficulty);
-    EXPECT_NEAR(fsrs::review(kCard, 10.0, fsrs::Rating::Good).difficulty, kCard.difficulty, 0.01);
-    EXPECT_LT(fsrs::review(kCard, 10.0, fsrs::Rating::Easy).difficulty, kCard.difficulty);
+    EXPECT_GT(fsrs::review(kTypicalCard, 10.0, fsrs::Rating::Again).difficulty, kTypicalCard.difficulty);
+    EXPECT_GT(fsrs::review(kTypicalCard, 10.0, fsrs::Rating::Hard).difficulty, kTypicalCard.difficulty);
+    EXPECT_NEAR(fsrs::review(kTypicalCard, 10.0, fsrs::Rating::Good).difficulty, kTypicalCard.difficulty, 0.01);
+    EXPECT_LT(fsrs::review(kTypicalCard, 10.0, fsrs::Rating::Easy).difficulty, kTypicalCard.difficulty);
 }
 
 TEST(Review, DifficultyStaysInRange) {
-    fsrs::MemoryState state = kCard;
+    fsrs::MemoryState state = kTypicalCard;
     for (int i = 0; i < 50; ++i) {
         state = fsrs::review(state, 1.0, fsrs::Rating::Again);
         EXPECT_LE(state.difficulty, 10.0);
@@ -124,12 +124,12 @@ TEST(Review, DifficultyStaysInRange) {
 
 TEST(Review, SameDayRememberingNeverLowersStability) {
     for (auto rating : {fsrs::Rating::Hard, fsrs::Rating::Good, fsrs::Rating::Easy}) {
-        EXPECT_GE(fsrs::review(kCard, 0.0, rating).stability, kCard.stability);
+        EXPECT_GE(fsrs::review(kTypicalCard, 0.0, rating).stability, kTypicalCard.stability);
     }
 }
 
 TEST(Review, SameDayForgettingLowersStability) {
-    EXPECT_LT(fsrs::review(kCard, 0.0, fsrs::Rating::Again).stability, kCard.stability);
+    EXPECT_LT(fsrs::review(kTypicalCard, 0.0, fsrs::Rating::Again).stability, kTypicalCard.stability);
 }
 
 TEST(Review, IntervalsGrowWhenReviewedOnTime) {
@@ -148,5 +148,5 @@ TEST(Review, ThrowsOnInvalidInput) {
     EXPECT_THROW(fsrs::review({0.0, 5.0}, 1.0, fsrs::Rating::Good), std::invalid_argument);
     EXPECT_THROW(fsrs::review({10.0, 0.5}, 1.0, fsrs::Rating::Good), std::invalid_argument);
     EXPECT_THROW(fsrs::review({10.0, 11.0}, 1.0, fsrs::Rating::Good), std::invalid_argument);
-    EXPECT_THROW(fsrs::review(kCard, -1.0, fsrs::Rating::Good), std::invalid_argument);
+    EXPECT_THROW(fsrs::review(kTypicalCard, -1.0, fsrs::Rating::Good), std::invalid_argument);
 }

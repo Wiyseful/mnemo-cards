@@ -1,24 +1,28 @@
-import createEngine from "./generated/fsrs.js";
+import loadFsrsEngine from "./generated/fsrs.js";
 import type { MemoryState } from "./generated/fsrs.js";
-import type { Rating } from "../scheduler/types.js";
+import type { Rating } from "../scheduler/types";
 
 export type { MemoryState };
 
-// loads wasm file once when this file is imported
-const engine = await createEngine();
+// loads the C++ engine (WebAssembly) once, when this file is first imported
+const fsrsEngine = await loadFsrsEngine();
 
-export function retrievability(stability: number, daysElapsed: number): number {
-    return engine.retrievability(stability, daysElapsed);
+// chance (0 to 1) you remember a card right now
+export function retrievability(stability: number, daysSinceLastReview: number): number {
+    return fsrsEngine.retrievability(stability, daysSinceLastReview);
 }
 
+// days to wait until your chance of remembering drops to desiredRetention
 export function nextInterval(stability: number, desiredRetention: number): number {
-    return engine.nextInterval(stability, desiredRetention);
+    return fsrsEngine.nextInterval(stability, desiredRetention);
 }
 
+// memory after the very first review of a brand-new card
 export function initialState(rating: Rating): MemoryState {
-    return engine.initialState(engine.Rating[rating]);
+    return fsrsEngine.initialState(fsrsEngine.Rating[rating]);
 }
 
-export function review(state: MemoryState, daysElapsed: number, rating: Rating): MemoryState {
-    return engine.review(state, daysElapsed, engine.Rating[rating]);
+// memory after any review except the first one
+export function review(currentMemory: MemoryState, daysSinceLastReview: number, rating: Rating): MemoryState {
+    return fsrsEngine.review(currentMemory, daysSinceLastReview, fsrsEngine.Rating[rating]);
 }
