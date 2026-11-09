@@ -7,16 +7,17 @@
 
 namespace fsrs {
     namespace {
-        // FSRS-6 default weights, from py-fsrs
-        constexpr std::array<double, 21> W = {
+        // FSRS-6 default weights (w0 to w20), from py-fsrs
+        constexpr std::array<double, 21> WEIGHTS = {
             0.212, 1.2931, 2.3065, 8.2956, 6.4133, 0.8334, 3.0194,
             0.001, 1.8722, 0.1666, 0.796, 1.4835, 0.0614, 0.2629,
             1.6483, 0.6014, 1.8729, 0.5425, 0.0912, 0.0658, 0.1542,
         };
 
-        // curve shape. FACTOR makes sure recall is 90% after S days
-        constexpr double DECAY = -W[20];
-        const double FACTOR = std::pow(0.9, 1.0 / DECAY) - 1.0;
+        // shape of the forgetting curve.
+        // CURVE_FACTOR makes sure recall is exactly 90% after `stability` days
+        constexpr double CURVE_DECAY = -WEIGHTS[20];
+        const double CURVE_FACTOR = std::pow(0.9, 1.0 / CURVE_DECAY) - 1.0;
 
         // keeps stability from hitting 0
         constexpr double MIN_STABILITY = 0.001;
@@ -27,72 +28,86 @@ namespace fsrs {
             }
         }
 
-        // starting difficulty for a new card.
-        double initialDifficulty(Rating rating) {
-            const int g = static_cast<int>(rating);
-            return W[4] - std::exp(W[5] * (g - 1)) + 1.0;
+        // starting difficulty for a new card. not clamped on purpose,
+        // difficultyAfterReview needs the raw number
+        double unclampedInitialDifficulty(Rating rating) {
+            const int ratingNumber = static_cast<int>(rating);
+            return WEIGHTS[4] - std::exp(WEIGHTS[5] * (ratingNumber - 1)) + 1.0;
         }
 
         // again/hard = harder, easy = easier, good = about the same
-        double nextDifficulty(double difficulty, Rating rating) {
-            const int g = static_cast<int>(rating);
+        double difficultyAfterReview(double currentDifficulty, Rating rating) {
+            const int ratingNumber = static_cast<int>(rating);
 
-            const double deltaDifficulty = -W[6] * (g - 3);
-            const double dampedDifficulty = difficulty + deltaDifficulty * (10.0 - difficulty) / 9.0;
+            const double difficultyChange = -WEIGHTS[6] * (ratingNumber - 3);
+            // smaller changes as difficulty gets close to 10
+            const double dampedDifficulty =
+                currentDifficulty + difficultyChange * (10.0 - currentDifficulty) / 9.0;
+            // pull slightly back toward a normal difficulty
             const double revertedDifficulty =
-                W[7] * initialDifficulty(Rating::Easy) + (1.0 - W[7]) * dampedDifficulty;
+                WEIGHTS[7] * unclampedInitialDifficulty(Rating::Easy) + (1.0 - WEIGHTS[7]) * dampedDifficulty;
 
             return std::clamp(revertedDifficulty, 1.0, 10.0);
         }
 
         // you remembered it, so stability goes up
-        double nextRecallStability(double stability, double difficulty, double retrievability,
-                                   Rating rating) {
-            const double difficultyFactor = 11.0 - difficulty; // higher difficulty means less growth
-            const double stabilityFactor = std::pow(stability, -W[9]); // higher stability means smaller proportional growth
-            const double retrievabilityFactor = std::exp(W[10] * (1.0 - retrievability)) - 1.0; // lower predicted recall means more growth when correct
-            const double hardPenalty = (rating == Rating::Hard) ? W[15] : 1.0; // reduces growth when user selects Hard
-            const double easyBonus = (rating == Rating::Easy) ? W[16] : 1.0; // increases growth with a bonus when user selects Easy
+        double stabilityAfterRemembering(double stability, double difficulty, double recallChance,
+                                         Rating rating) {
+            // harder cards grow less
+            const double difficultyFactor = 11.0 - difficulty;
+            // strong memories grow less
+            const double stabilityFactor = std::pow(stability, -WEIGHTS[9]);
+            // remembering when you were close to forgetting grows more
+            const double recallChanceFactor = std::exp(WEIGHTS[10] * (1.0 - recallChance)) - 1.0;
+            // Hard shrinks the growth, Easy boosts it
+            const double hardPenalty = (rating == Rating::Hard) ? WEIGHTS[15] : 1.0;
+            const double easyBonus = (rating == Rating::Easy) ? WEIGHTS[16] : 1.0;
 
-            const double growth = std::exp(W[8]) * difficultyFactor * stabilityFactor
-                * retrievabilityFactor * hardPenalty * easyBonus;
+            const double stabilityGrowth = std::exp(WEIGHTS[8]) * difficultyFactor * stabilityFactor
+                * recallChanceFactor * hardPenalty * easyBonus;
 
-            // Only increase gets adjusted not existing stability
-            return stability * (1.0 + growth);
+            return stability * (1.0 + stabilityGrowth);
         }
 
         // you forgot it, so stability goes down
-        double nextForgetStability(double stability, double difficulty, double retrievability) {
-            const double difficultyFactor = std::pow(difficulty, -W[12]);
-            const double stabilityFactor = std::pow(stability + 1.0, W[13]) - 1.0;
-            const double retrievabilityFactor = std::exp(W[14] * (1.0 - retrievability));
+        double stabilityAfterForgetting(double stability, double difficulty, double recallChance) {
+            // harder cards drop lower
+            const double difficultyFactor = std::pow(difficulty, -WEIGHTS[12]);
+            // strong old memories keep more
+            const double stabilityFactor = std::pow(stability + 1.0, WEIGHTS[13]) - 1.0;
+            // forgetting when you were likely to forget is less of a hit
+            const double recallChanceFactor = std::exp(WEIGHTS[14] * (1.0 - recallChance));
 
-            const double longTerm = W[11] * difficultyFactor * stabilityFactor * retrievabilityFactor;
-            const double shortTerm = stability / std::exp(W[17] * W[18]);
+            const double longTermStability =
+                WEIGHTS[11] * difficultyFactor * stabilityFactor * recallChanceFactor;
+            // cap so forgetting always lowers stability
+            const double maxStabilityAfterForgetting = stability / std::exp(WEIGHTS[17] * WEIGHTS[18]);
 
-            return std::min(longTerm, shortTerm);
+            return std::min(longTermStability, maxStabilityAfterForgetting);
         }
 
-        // reviewed twice in the same day
-        double shortTermStability(double stability, Rating rating) {
-            const int g = static_cast<int>(rating);
+        // reviewed again less than a day after the last review
+        double stabilityAfterSameDayReview(double stability, Rating rating) {
+            const int ratingNumber = static_cast<int>(rating);
 
-            double multiplier = std::exp(W[17] * (g - 3 + W[18])) * std::pow(stability, -W[19]);
+            double stabilityMultiplier =
+                std::exp(WEIGHTS[17] * (ratingNumber - 3 + WEIGHTS[18])) * std::pow(stability, -WEIGHTS[19]);
+            // remembering never lowers stability
             if (rating != Rating::Again) {
-                multiplier = std::max(multiplier, 1.0);
+                stabilityMultiplier = std::max(stabilityMultiplier, 1.0);
             }
 
-            return stability * multiplier;
+            return stability * stabilityMultiplier;
         }
     } // namespace
 
-    double retrievability(double stability, double daysElapsed) {
+    double retrievability(double stability, double daysSinceLastReview) {
         requirePositiveStability(stability);
-        if (daysElapsed < 0.0) {
-            throw std::invalid_argument("daysElapsed must be >= 0");
+        if (daysSinceLastReview < 0.0) {
+            throw std::invalid_argument("daysSinceLastReview must be >= 0");
         }
 
-        return std::pow(1.0 + FACTOR * daysElapsed / stability, DECAY);
+        return std::pow(1.0 + CURVE_FACTOR * daysSinceLastReview / stability, CURVE_DECAY);
     }
 
     double nextInterval(double stability, double desiredRetention) {
@@ -101,42 +116,45 @@ namespace fsrs {
             throw std::invalid_argument("desiredRetention must be between 0 and 1 (exclusive)");
         }
 
-        return (stability / FACTOR) * (std::pow(desiredRetention, 1.0 / DECAY) - 1.0);
+        return (stability / CURVE_FACTOR) * (std::pow(desiredRetention, 1.0 / CURVE_DECAY) - 1.0);
     }
 
     MemoryState initialState(Rating rating) {
-        const int g = static_cast<int>(rating);
+        const int ratingNumber = static_cast<int>(rating);
 
-        const double stability = W[g - 1];
-        const double difficulty = std::clamp(initialDifficulty(rating), 1.0, 10.0);
+        // Again reads WEIGHTS[0], Easy reads WEIGHTS[3]
+        const double stability = WEIGHTS[ratingNumber - 1];
+        const double difficulty = std::clamp(unclampedInitialDifficulty(rating), 1.0, 10.0);
 
         return {stability, difficulty};
     }
 
-    // stability has to use the old difficulty, so do it first
-    MemoryState review(MemoryState state, double daysElapsed, Rating rating) {
-        requirePositiveStability(state.stability);
-        if (state.difficulty < 1.0 || state.difficulty > 10.0) {
+    // new stability has to use the old difficulty, so it's worked out first
+    MemoryState review(MemoryState currentMemory, double daysSinceLastReview, Rating rating) {
+        requirePositiveStability(currentMemory.stability);
+        if (currentMemory.difficulty < 1.0 || currentMemory.difficulty > 10.0) {
             throw std::invalid_argument("difficulty must be between 1 and 10");
         }
-        if (daysElapsed < 0.0) {
-            throw std::invalid_argument("daysElapsed must be >= 0");
+        if (daysSinceLastReview < 0.0) {
+            throw std::invalid_argument("daysSinceLastReview must be >= 0");
         }
 
-        double stability;
-        if (daysElapsed < 1.0) {
-            stability = shortTermStability(state.stability, rating);
-        }
-        else {
-            const double r = retrievability(state.stability, daysElapsed);
-            stability = (rating == Rating::Again)
-                            ? nextForgetStability(state.stability, state.difficulty, r)
-                            : nextRecallStability(state.stability, state.difficulty, r, rating);
+        double newStability;
+        if (daysSinceLastReview < 1.0) {
+            newStability = stabilityAfterSameDayReview(currentMemory.stability, rating);
+        } else {
+            const double recallChance = retrievability(currentMemory.stability, daysSinceLastReview);
+            newStability = (rating == Rating::Again)
+                               ? stabilityAfterForgetting(currentMemory.stability, currentMemory.difficulty,
+                                                          recallChance)
+                               : stabilityAfterRemembering(currentMemory.stability, currentMemory.difficulty,
+                                                           recallChance, rating);
         }
 
         return {
-            std::max(stability, MIN_STABILITY),
-            nextDifficulty(state.difficulty, rating),
+            std::max(newStability, MIN_STABILITY),
+            difficultyAfterReview(currentMemory.difficulty, rating),
         };
     }
 } // namespace fsrs
+ 

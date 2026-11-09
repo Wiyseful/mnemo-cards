@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { retrievability, nextInterval, initialState, review } from "./index.js";
+import { retrievability, nextInterval, initialState, review } from "./index";
 
 describe("engine (wasm)", () => {
     it("matches the C++ forgetting curve", () => {
@@ -13,9 +13,10 @@ describe("engine (wasm)", () => {
     });
 
     it("updates a card after a review", () => {
-        const after = review({ stability: 10, difficulty: 5 }, 10, "Good");
-        expect(after.stability).toBeCloseTo(32.026729482, 6);
-        expect(after.difficulty).toBeCloseTo(4.990228369, 6);
+        // expected numbers come from the official py-fsrs library
+        const memoryAfterReview = review({ stability: 10, difficulty: 5 }, 10, "Good");
+        expect(memoryAfterReview.stability).toBeCloseTo(32.026729482, 6);
+        expect(memoryAfterReview.difficulty).toBeCloseTo(4.990228369, 6);
     });
 
     it("throws on bad input", () => {
