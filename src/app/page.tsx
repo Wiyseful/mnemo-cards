@@ -3,13 +3,15 @@
 import {useEffect, useState} from "react";
 import {sampleCards} from "@/data/sampleCards";
 import {applyRating} from "@/scheduler/applyRating";
-import {findNextDueCard} from "@/scheduler/findNextDueCard";
 import {formatDuration} from "@/scheduler/formatDuration";
 import type {Rating} from "@/scheduler/types";
 import {averageRecallChance} from "@/scheduler/averageRecallChance";
+import {queueAfterRating} from "@/scheduler/sessionQueue";
 
 const RATING_BUTTON_CLASSES =
     "rounded-full border border-gray-200 bg-white px-5 py-2 text-sm shadow-sm hover:bg-gray-100";
+
+const PROBLEM_CARD_FORGET_LIMIT = 5;
 
 // which rating each number key picks
 const RATING_FOR_KEY: Record<string, Rating> = {
@@ -32,8 +34,14 @@ export default function StudyPage() {
     const [cards, setCards] = useState(sampleCards);
     const [sessionStartedAtMs, setSessionStartedAtMs] = useState<number | null>(null);
     const [currentTimeMs, setCurrentTimeMs] = useState(Date.now());
+    const [sessionQueue, setSessionQueue] = useState(
+        sampleCards
+            .filter((card) => card.dueAt <= currentTimeMs)
+            .sort((cardA, cardB) => cardA.dueAt - cardB.dueAt)
+            .map((card) => card.id)
+    );
 
-    const currentCard = findNextDueCard(cards, Date.now());
+    const currentCard = cards.find((card) => card.id === sessionQueue[0]);
 
     // the session starts the first time an answer is revealed
     const revealAnswer = () => {
@@ -48,6 +56,7 @@ export default function StudyPage() {
         if (!currentCard) return;
         const ratedCard = applyRating(currentCard, rating, Date.now());
         setCards(cards.map((card) => (card.id === currentCard.id ? ratedCard : card)));
+        setSessionQueue(queueAfterRating(sessionQueue, rating));
         setIsAnswerShown(false);
     };
 
@@ -121,6 +130,11 @@ export default function StudyPage() {
                             <p className="mt-4 text-sm text-gray-400">
                                 {`${currentCard.reviewCount} ${currentCard.reviewCount === 1 ? "review" : "reviews"}`}
                             </p>
+                            {currentCard.forgetCount >= PROBLEM_CARD_FORGET_LIMIT && (
+                                <p className="mt-2 text-sm text-amber-600">
+                                    {`You've forgotten this ${currentCard.forgetCount} times. Try rewriting it.`}
+                                </p>
+                            )}
                         </>
                     )}
                 </button>
