@@ -50,4 +50,9 @@ describe("applyRating", () => {
         applyRating(unstudiedCard, "Good", TEST_START_TIME_MS);
         expect(unstudiedCard.stability).toBeNull();
     });
+
+    it("a forgotten card is due right away", () => {
+        const forgottenCard = applyRating(unstudiedCard, "Again", TEST_START_TIME_MS);
+        expect(forgottenCard.dueAt).toBe(TEST_START_TIME_MS);
+    });
 });

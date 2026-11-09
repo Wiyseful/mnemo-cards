@@ -29,7 +29,7 @@ export function applyRating(card: Card, rating: Rating, currentTimeMs: number): 
         stability: newMemory.stability,
         difficulty: newMemory.difficulty,
         lastReviewedAt: currentTimeMs,
-        dueAt: currentTimeMs + daysUntilDue * MS_PER_DAY,
+        dueAt: rating === "Again" ? currentTimeMs : currentTimeMs + daysUntilDue * MS_PER_DAY,
         reviewCount: card.reviewCount + 1,
         forgetCount: rating === "Again" ? card.forgetCount + 1 : card.forgetCount,
     };
