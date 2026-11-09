@@ -6,10 +6,8 @@ import {applyRating} from "@/scheduler/applyRating";
 import {formatDuration} from "@/scheduler/formatDuration";
 import type {Rating} from "@/scheduler/types";
 import {averageRecallChance} from "@/scheduler/averageRecallChance";
-import {queueAfterRating} from "@/scheduler/sessionQueue";
-
-const RATING_BUTTON_CLASSES =
-    "rounded-full border border-gray-200 bg-white px-5 py-2 text-sm shadow-sm hover:bg-gray-100";
+import {queueAfterRating, dueCardIdsInOrder} from "@/scheduler/sessionQueue";
+import {loadSavedCards, saveCards} from "@/data/cardStorage";
 
 const PROBLEM_CARD_FORGET_LIMIT = 5;
 
@@ -34,12 +32,9 @@ export default function StudyPage() {
     const [cards, setCards] = useState(sampleCards);
     const [sessionStartedAtMs, setSessionStartedAtMs] = useState<number | null>(null);
     const [currentTimeMs, setCurrentTimeMs] = useState(Date.now());
-    const [sessionQueue, setSessionQueue] = useState(
-        sampleCards
-            .filter((card) => card.dueAt <= currentTimeMs)
-            .sort((cardA, cardB) => cardA.dueAt - cardB.dueAt)
-            .map((card) => card.id)
-    );
+    const [sessionQueue, setSessionQueue] = useState(dueCardIdsInOrder(sampleCards, currentTimeMs));
+    const [sessionCardCount, setSessionCardCount] = useState(sessionQueue.length);
+    const [hasLoadedSavedCards, setHasLoadedSavedCards] = useState(false);
 
     const currentCard = cards.find((card) => card.id === sessionQueue[0]);
 
@@ -66,6 +61,26 @@ export default function StudyPage() {
         return () => clearInterval(tickIntervalId);
     }, []);
 
+    // on page open: swap in saved progress, if there is any
+    useEffect(() => {
+        const savedCards = loadSavedCards();
+        if (savedCards === null) {
+            setHasLoadedSavedCards(true);
+            return;
+        }
+        setCards(savedCards);
+        const savedSessionQueue = dueCardIdsInOrder(savedCards, Date.now());
+        setSessionQueue(savedSessionQueue);
+        setSessionCardCount(savedSessionQueue.length);
+        setHasLoadedSavedCards(true);
+    }, []);
+
+    // after every change to the cards: save them, but only once loading is done
+    useEffect(() => {
+        if (!hasLoadedSavedCards) return;
+        saveCards(cards);
+    }, [cards, hasLoadedSavedCards]);
+
     // keyboard shortcuts: Space reveals the answer, 1-4 rate the card
     useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
@@ -89,6 +104,11 @@ export default function StudyPage() {
         return () => window.removeEventListener("keydown", handleKeyDown);
     });
 
+    // show a blank page until saved progress is loaded, so the sample cards don't flash first
+    if (!hasLoadedSavedCards) {
+        return <main className="min-h-screen bg-gray-50" />;
+    }
+
     if (!currentCard) {
         return (
             <main className="min-h-screen flex items-center justify-center bg-gray-50 p-8">
@@ -100,8 +120,13 @@ export default function StudyPage() {
     const elapsedStudyTimeMs =
         sessionStartedAtMs === null ? 0 : Math.max(0, currentTimeMs - sessionStartedAtMs);
 
-    // Calculate average retrievability of cards in a deck
-    const averageRetrievability = Math.round(averageRecallChance(cards, currentTimeMs) * 100);
+    // how far through today's cards: finished / total
+    const finishedCardCount = sessionCardCount - sessionQueue.length;
+    const sessionProgressPercent =
+        sessionCardCount > 0 ? (finishedCardCount / sessionCardCount) * 100 : 0;
+
+    // average chance of remembering each card in the deck right now, as a whole percent
+    const deckRecallPercent = Math.round(averageRecallChance(cards, currentTimeMs) * 100);
 
     // text like "3 d": how long until the card comes back if this rating is picked
     const timeUntilDueText = (rating: Rating) => {
@@ -111,54 +136,66 @@ export default function StudyPage() {
     };
 
     return (
-        <main className="relative min-h-screen flex flex-col items-center justify-center bg-gray-50 p-8">
+        <main className="min-h-screen flex flex-col items-center bg-gray-50">
+            {/* session progress bar */}
+            <div className="h-2 w-full bg-gray-200">
+                <div
+                    className="h-full bg-gray-500 transition-all duration-300"
+                    style={{ width: `${sessionProgressPercent}%` }}
+                />
+            </div>
 
-            {/* Stopwatch in top right corner tracking study session */}
-            <p className="absolute top-6 right-6 text-xl text-gray-500 tabular-nums">
-                {formatStopwatch(elapsedStudyTimeMs)}
-            </p>
-            {/* Average of retrievability score of cards in deck */}
-            <p className="absolute top-6 left-6 text-xl text-gray-500">
-                Deck recallability: {averageRetrievability}%
-            </p>
-            <div className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow">
-                <button onClick={revealAnswer} className="w-full p-10 text-left text-xl">
-                    <p>{currentCard.front}</p>
-                    {isAnswerShown && (
-                        <>
-                            <p className="mt-6 border-t border-gray-200 pt-6">{currentCard.back}</p>
-                            <p className="mt-4 text-sm text-gray-400">
-                                {`${currentCard.reviewCount} ${currentCard.reviewCount === 1 ? "review" : "reviews"}`}
-                            </p>
-                            {currentCard.forgetCount >= PROBLEM_CARD_FORGET_LIMIT && (
-                                <p className="mt-2 text-sm text-amber-600">
-                                    {`You've forgotten this ${currentCard.forgetCount} times. Try rewriting it.`}
+            {/* top bar: deck score on the left, progress count and timer on the right */}
+            <div className="flex w-full justify-between px-6 py-4 text-sm text-gray-500">
+                <p>Deck recallability: {deckRecallPercent}%</p>
+                <div className="flex gap-4 tabular-nums">
+                    <p>{finishedCardCount} / {sessionCardCount}</p>
+                    <p>{formatStopwatch(elapsedStudyTimeMs)}</p>
+                </div>
+            </div>
+
+            {/* card area: close to the top on phones, lower on bigger screens */}
+            <div className="mt-6 w-full max-w-2xl px-4 sm:mt-[18vh]">
+                <div className="overflow-hidden rounded-2xl bg-white shadow-md">
+                    <button onClick={revealAnswer} className="w-full p-6 text-left text-lg sm:p-10">
+                        <p>{currentCard.front}</p>
+                        {isAnswerShown && (
+                            <>
+                                <p className="mt-6 border-t border-gray-200 pt-6">{currentCard.back}</p>
+                                <p className="mt-4 text-sm text-gray-400">
+                                    {`${currentCard.reviewCount} ${currentCard.reviewCount === 1 ? "review" : "reviews"}`}
                                 </p>
-                            )}
-                        </>
-                    )}
-                </button>
+                                {currentCard.forgetCount >= PROBLEM_CARD_FORGET_LIMIT && (
+                                    <p className="mt-2 text-sm text-amber-600">
+                                        {`You've forgotten this ${currentCard.forgetCount} times. Try rewriting it.`}
+                                    </p>
+                                )}
+                            </>
+                        )}
+                    </button>
 
-                {isAnswerShown && (
-                    <div className="grid grid-cols-4 divide-x divide-gray-200 border-t border-gray-200">
-                        {(["Again", "Hard", "Good", "Easy"] as const).map((rating) => (
-                            <button
-                                key={rating}
-                                onClick={() => handleRatingClick(rating)}
-                                className="py-3 text-sm hover:bg-gray-50"
-                            >
-                                <span className="block font-medium">{rating}</span>
-                                <span className="block text-xs text-gray-400">{timeUntilDueText(rating)}</span>
-                            </button>
-                        ))}
-                    </div>
+                    {isAnswerShown && (
+                        <div className="grid grid-cols-4 divide-x-4 divide-gray-200 border-t-4 border-gray-200 bg-gray-50">
+                            {(["Again", "Hard", "Good", "Easy"] as const).map((rating) => (
+                                <button
+                                    key={rating}
+                                    onClick={() => handleRatingClick(rating)}
+                                    className="py-3 text-sm hover:bg-gray-100"
+                                >
+                                    <span className="block font-medium">{rating}</span>
+                                    <span className="block text-xs text-gray-400">{timeUntilDueText(rating)}</span>
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {!isAnswerShown && (
+                    <p className="mx-auto mt-6 w-fit rounded-full bg-gray-100 px-5 py-2 text-sm text-gray-400">
+                        Press <kbd className="mx-1 rounded-md border border-gray-300 bg-white px-2 py-0.5 text-xs text-gray-600 shadow-sm">SPACE</kbd> to reveal the answer
+                    </p>
                 )}
             </div>
-            {!isAnswerShown && (
-                <p className="mt-6 rounded-full bg-gray-100 px-5 py-2 text-sm text-gray-400">
-                    Press <kbd className="mx-1 rounded-md border border-gray-300 bg-white px-2 py-0.5 text-xs text-gray-600 shadow-sm">SPACE</kbd> to reveal the answer
-                </p>
-            )}
         </main>
     );
 }

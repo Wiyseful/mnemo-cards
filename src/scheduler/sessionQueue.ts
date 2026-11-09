@@ -1,4 +1,6 @@
-import type { Rating } from "./types";
+import type { Rating, Card } from "./types";
+
+
 
 // how many cards later a forgotten card comes back in the same session
 export const AGAIN_RETURN_DISTANCE = 5;
@@ -20,4 +22,13 @@ export function queueAfterRating(queuedCardIds: string[], rating: Rating): strin
         ratedCardId,
         ...remainingCardIds.slice(returnPosition),
     ];
+}
+// ids of the cards due right now, most overdue first
+export function dueCardIdsInOrder(cards: Card[], currentTimeMs: number): string[] {
+    return (
+        cards
+            .filter((card) => card.dueAt <= currentTimeMs)
+            .sort((cardA, cardB) => cardA.dueAt - cardB.dueAt)
+            .map((card) => card.id)
+    );
 }
