@@ -14,12 +14,21 @@ import {MS_PER_DAY} from "@/scheduler/time";
 const PROBLEM_CARD_FORGET_LIMIT = 5;
 const MEMORY_FORECAST_DAYS = 7;
 
+// the ratings shown as buttons, in order (Hard isn't used)
+const BUTTON_RATINGS = ["Again", "Good", "Easy"] as const;
+
+// what each button says. the engine still gets the rating underneath
+const BUTTON_LABEL_FOR_RATING: Record<(typeof BUTTON_RATINGS)[number], string> = {
+    Again: "Forgot",
+    Good: "Recalled",
+    Easy: "Instant",
+};
+
 // which rating each number key picks
 const RATING_FOR_KEY: Record<string, Rating> = {
     "1": "Again",
-    "2": "Hard",
-    "3": "Good",
-    "4": "Easy",
+    "2": "Good",
+    "3": "Easy",
 };
 
 // turns a duration into stopwatch text like "4:05"
@@ -50,7 +59,7 @@ export default function StudyPage() {
         setIsAnswerShown(true);
     };
 
-// saves the rated card and moves on to the next one
+    // saves the rated card and moves on to the next one
     const handleRatingClick = (rating: Rating) => {
         if (!currentCard) return;
 
@@ -95,7 +104,7 @@ export default function StudyPage() {
         saveCards(cards);
     }, [cards, hasLoadedSavedCards]);
 
-    // keyboard shortcuts: Space reveals the answer, 1-4 rate the card
+    // keyboard shortcuts: Space reveals the answer, 1-3 rate the card
     useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
             if (!currentCard) return;
@@ -155,7 +164,6 @@ export default function StudyPage() {
 
     return (
         <main className="min-h-screen flex flex-col items-center bg-gray-50">
-            {/* session progress bar */}
             {/* session progress bar: gray = done, red = forgotten */}
             <div className="flex h-2 w-full bg-gray-200">
                 <div
@@ -223,15 +231,14 @@ export default function StudyPage() {
                     </button>
 
                     {isAnswerShown && (
-                        <div
-                            className="grid grid-cols-4 divide-x-3 divide-gray-200 border-t-3 border-gray-200 bg-gray-50">
-                            {(["Again", "Hard", "Good", "Easy"] as const).map((rating) => (
+                        <div className="grid grid-cols-3 divide-x-3 divide-gray-200 border-t-3 border-gray-200 bg-gray-50">
+                            {BUTTON_RATINGS.map((rating) => (
                                 <button
                                     key={rating}
                                     onClick={() => handleRatingClick(rating)}
-                                    className="py-3 text-sm hover:bg-gray-100"
+                                    className="cursor-pointer py-3 text-sm hover:bg-gray-100"
                                 >
-                                    <span className="block font-medium">{rating}</span>
+                                    <span className="block font-medium">{BUTTON_LABEL_FOR_RATING[rating]}</span>
                                     <span className="block text-xs text-gray-400">{timeUntilDueText(rating)}</span>
                                 </button>
                             ))}
