@@ -7,13 +7,13 @@ import { sampleCards } from "@/data/sampleCards";
 import { loadSavedCards, saveCards } from "@/data/cardStorage";
 import { applyRating } from "@/scheduler/applyRating";
 import { formatDuration } from "@/scheduler/formatDuration";
-import { averageRecallChance } from "@/scheduler/averageRecallChance";
+import { MEMORY_FORECAST_DAYS, memoryPercentForecast } from "@/scheduler/averageRecallChance";
 import { queueAfterRating, dueCardIdsInOrder } from "@/scheduler/sessionQueue";
-import { MS_PER_DAY } from "@/scheduler/time";
+
 import type { Rating } from "@/scheduler/types";
 
 const PROBLEM_CARD_FORGET_LIMIT = 5;
-const MEMORY_FORECAST_DAYS = 7;
+
 
 // the ratings shown as buttons, in order (Hard isn't used)
 const BUTTON_RATINGS = ["Again", "Good", "Easy"] as const;
@@ -165,10 +165,8 @@ export default function StudyPage() {
     const sessionProgressPercent =
         sessionCardCount > 0 ? (finishedCardCount / sessionCardCount) * 100 : 0;
 
-    // average chance of remembering each card in this deck a week from now, as a whole percent
-    const deckRecallPercent = Math.round(
-        averageRecallChance(deckCards, currentTimeMs + MEMORY_FORECAST_DAYS * MS_PER_DAY) * 100,
-    );
+    // how much of this deck you'd remember if you stopped studying now
+    const deckMemoryPercent = memoryPercentForecast(deckCards, currentTimeMs);
 
     // text like "3 d": how long until the card comes back if this rating is picked
     const timeUntilDueText = (rating: Rating) => {
@@ -196,11 +194,10 @@ export default function StudyPage() {
                 {/* left: deck memory */}
                 <div
                     className="flex items-center gap-1.5"
-                    title="Average chance you'd remember each card a week from now"
                 >
                     <Brain className="h-4 w-4" />
-                    <span className="font-medium tabular-nums text-gray-700">{deckRecallPercent}%</span>
-                    <span>memory</span>
+                    <span className="font-medium tabular-nums text-gray-700">{deckMemoryPercent}%</span>
+                    <span>in {MEMORY_FORECAST_DAYS} days</span>
                 </div>
 
                 {/* middle: cards done this session, and cards forgotten */}
