@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { Brain, Check, Clock, Coffee, Inbox, Pointer, X } from "lucide-react";
+import { ArrowLeft, Brain, Check, Clock, Coffee, Inbox, Pointer, X } from "lucide-react";
 import { sampleCards } from "@/data/sampleCards";
 import { loadSavedCards, saveCards } from "@/data/cardStorage";
 import { applyRating } from "@/scheduler/applyRating";
@@ -55,6 +55,8 @@ export default function StudyPage() {
     const [sessionCardCount, setSessionCardCount] = useState(sessionQueue.length);
     const [hasLoadedSavedCards, setHasLoadedSavedCards] = useState(false);
     const [missedCardIds, setMissedCardIds] = useState<string[]>([]);
+    // every card forgotten at least once this session. unlike missedCardIds, cards never leave this list
+    const [forgottenCardIds, setForgottenCardIds] = useState<string[]>([]);
     // when the last card was finished, so the timer stops on the done screen
     const [sessionFinishedAtMs, setSessionFinishedAtMs] = useState<number | null>(null);
 
@@ -79,6 +81,9 @@ export default function StudyPage() {
         if (rating === "Again") {
             if (!missedCardIds.includes(currentCard.id)) {
                 setMissedCardIds([...missedCardIds, currentCard.id]);
+            }
+            if (!forgottenCardIds.includes(currentCard.id)) {
+                setForgottenCardIds([...forgottenCardIds, currentCard.id]);
             }
         } else {
             setMissedCardIds(missedCardIds.filter((missedId) => missedId !== currentCard.id));
@@ -165,75 +170,75 @@ export default function StudyPage() {
     const nextDueAtMs =
         deckCards.length > 0 ? Math.min(...deckCards.map((card) => card.dueAt)) : null;
 
+    // no card left to show: draw the summary instead of the study screen
     if (!currentCard) {
         // nothing was due when the deck opened, so there was no session to finish
         const hasStudiedThisSession = sessionCardCount > 0;
         const isDeckEmpty = deckCards.length === 0;
 
+        const headerText = hasStudiedThisSession
+            ? "Session complete"
+            : isDeckEmpty
+                ? "No cards yet"
+                : "Nothing due right now";
+
+        // each row of the summary: what it is on the left, the value on the right
+        const summaryRows: { label: string; value: string; isWarning?: boolean }[] = [];
+        if (hasStudiedThisSession) {
+            summaryRows.push(
+                { label: `Memory in ${MEMORY_FORECAST_DAYS} days`, value: `${deckMemoryPercent}%` },
+                { label: "Reviewed", value: `${sessionCardCount}` },
+                { label: "Forgotten", value: `${forgottenCardIds.length}`, isWarning: forgottenCardIds.length > 0 },
+                { label: "Time studied", value: formatStopwatch(elapsedStudyTimeMs) },
+            );
+        }
+        if (nextDueAtMs !== null) {
+            summaryRows.push({
+                label: "Next card due in",
+                value: formatDuration(Math.max(0, nextDueAtMs - currentTimeMs)),
+            });
+        }
+
         return (
-            <main className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
-                <div className="w-full max-w-md rounded-2xl bg-white p-8 text-center shadow-md sm:p-10">
-                    {hasStudiedThisSession ? (
-                        <>
-                            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-green-100">
-                                <Check className="h-7 w-7 text-green-600" />
-                            </div>
-                            <h1 className="mt-4 text-2xl font-semibold text-gray-800">Session complete</h1>
-
-                            <p className="mt-6 text-6xl font-bold tabular-nums text-gray-900">{deckMemoryPercent}%</p>
-                            <p className="mt-2 text-sm text-gray-500">
-                                of this deck stays with you for {MEMORY_FORECAST_DAYS} days
-                            </p>
-
-                            <div className="mt-8 grid grid-cols-3 divide-x divide-gray-200 rounded-xl bg-gray-50 py-4">
-                                <div>
-                                    <p className="text-xl font-semibold tabular-nums text-gray-800">{sessionCardCount}</p>
-                                    <p className="text-xs text-gray-500">reviewed</p>
-                                </div>
-                                <div>
-                                    <p
-                                        className={`text-xl font-semibold tabular-nums ${
-                                            missedCardIds.length > 0 ? "text-red-500" : "text-gray-800"
-                                        }`}
-                                    >
-                                        {missedCardIds.length}
-                                    </p>
-                                    <p className="text-xs text-gray-500">forgotten</p>
-                                </div>
-                                <div>
-                                    <p className="text-xl font-semibold tabular-nums text-gray-800">
-                                        {formatStopwatch(elapsedStudyTimeMs)}
-                                    </p>
-                                    <p className="text-xs text-gray-500">studied</p>
-                                </div>
-                            </div>
-                        </>
-                    ) : (
-                        <>
-                            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-gray-100">
-                                <Coffee className="h-7 w-7 text-gray-500" />
-                            </div>
-                            <h1 className="mt-4 text-2xl font-semibold text-gray-800">
-                                {isDeckEmpty ? "No cards yet" : "Nothing due right now"}
-                            </h1>
-                        </>
-                    )}
-
-                    {nextDueAtMs !== null && (
-                        <p className="mt-6 text-sm text-gray-500">
-                            Next card due in{" "}
-                            <span className="font-medium text-gray-700">
-                                {formatDuration(Math.max(0, nextDueAtMs - currentTimeMs))}
+            <main className="min-h-screen flex flex-col items-center bg-gray-50">
+                <div className="mt-6 w-full max-w-2xl px-4 sm:mt-[18vh]">
+                    <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+                        {/* header: small badge, like Mochi's "NEW CARD" */}
+                        <div className="border-b border-gray-100 px-6 py-3">
+                            <span className="inline-flex items-center gap-1 rounded-md bg-gray-100 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-gray-500">
+                                {hasStudiedThisSession ? <Check className="h-3 w-3" /> : <Coffee className="h-3 w-3" />}
+                                {headerText}
                             </span>
-                        </p>
-                    )}
+                        </div>
 
-                    <Link
-                        href="/"
-                        className="mt-6 inline-block rounded-full bg-gray-900 px-6 py-2.5 text-sm font-medium text-white hover:bg-gray-700"
-                    >
-                        Back to decks
-                    </Link>
+                        {/* summary rows: label on the left, value on the right */}
+                        {summaryRows.length > 0 && (
+                            <dl className="divide-y divide-gray-100 px-6">
+                                {summaryRows.map((row) => (
+                                    <div key={row.label} className="flex items-center justify-between py-3 text-sm">
+                                        <dt className="text-gray-500">{row.label}</dt>
+                                        <dd
+                                            className={`font-medium tabular-nums ${
+                                                row.isWarning ? "text-red-500" : "text-gray-800"
+                                            }`}
+                                        >
+                                            {row.value}
+                                        </dd>
+                                    </div>
+                                ))}
+                            </dl>
+                        )}
+                    </div>
+
+                    <div className="mt-6 flex justify-center">
+                        <Link
+                            href="/"
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
+                        >
+                            <ArrowLeft className="h-4 w-4" />
+                            Back to decks
+                        </Link>
+                    </div>
                 </div>
             </main>
         );
