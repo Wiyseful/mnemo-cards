@@ -17,6 +17,7 @@ const unstudiedCard: Card = {
     reviewCount: 0,
     forgetCount: 0,
     studyPhase: "New",
+    deletedAt: null,
 };
 
 describe("applyRating", () => {

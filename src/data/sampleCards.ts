@@ -7,6 +7,7 @@ function createUnstudiedCard(id: string, front: string, back: string): Card {
     return {
         id,
         deckId: SAMPLE_DECK_ID,
+        deletedAt: null,
         front,
         back,
         stability: null,
@@ -20,7 +21,7 @@ function createUnstudiedCard(id: string, front: string, back: string): Card {
 }
 
 export const sampleDecks: Deck[] = [
-    {id: SAMPLE_DECK_ID, name: "CS Fundamentals", parentDeckId: null},
+    {id: SAMPLE_DECK_ID, name: "CS Fundamentals", parentDeckId: null, deletedAt: null,},
 ];
 
 export const sampleCards: Card[] = [

@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
-import {averageRecallChance} from './averageRecallChance';
-import {MS_PER_DAY} from './time';
-import type {Card} from './types';
+import { averageRecallChance, memoryPercentForecast } from "./averageRecallChance";
+import { MS_PER_DAY } from "./time";
+import type { Card } from "./types";
 
 const TEST_CURRENT_TIME_MS = 1_700_000_000_000;
 
@@ -17,6 +17,7 @@ const unstudiedCard: Card = {
     reviewCount: 0,
     forgetCount: 0,
     studyPhase: "New",
+    deletedAt: null,
 };
 
 const cardReviewedJustNow: Card = {
@@ -55,4 +56,23 @@ describe("averageRecallChance", () => {
     });
 });
 
+describe("memoryPercentForecast", () => {
+    it("returns 0 for an empty deck", () => {
+        expect(memoryPercentForecast([], TEST_CURRENT_TIME_MS)).toBe(0);
+    });
 
+    it("returns 0 for a deck with only unstudied cards", () => {
+        expect(memoryPercentForecast([unstudiedCard], TEST_CURRENT_TIME_MS)).toBe(0);
+    });
+
+    it("returns a whole number", () => {
+        const memoryPercent = memoryPercentForecast([cardReviewedJustNow], TEST_CURRENT_TIME_MS);
+        expect(Number.isInteger(memoryPercent)).toBe(true);
+    });
+
+    it("is lower than what you'd remember right now, because you forget over time", () => {
+        const memoryPercent = memoryPercentForecast([cardReviewedJustNow], TEST_CURRENT_TIME_MS);
+        const recallPercentRightNow = averageRecallChance([cardReviewedJustNow], TEST_CURRENT_TIME_MS) * 100;
+        expect(memoryPercent).toBeLessThan(recallPercentRightNow);
+    });
+});

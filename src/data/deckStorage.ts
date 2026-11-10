@@ -1,4 +1,4 @@
-import type {Deck} from "@/scheduler/types";
+import type { Deck } from "@/scheduler/types";
 
 const STORAGE_KEY = "mnemo-decks";
 
@@ -12,5 +12,9 @@ export function loadSavedDecks(): Deck[] | null {
     if (savedDecksAsText === null) {
         return null;
     }
-    return JSON.parse(savedDecksAsText) as Deck[];
+    const savedDecks = JSON.parse(savedDecksAsText) as Deck[];
+
+    // decks saved before the trash existed have no deletedAt, so mark them as not deleted
+    const migratedDecks = savedDecks.map((deck) => ({ ...deck, deletedAt: deck.deletedAt ?? null }));
+    return migratedDecks;
 }

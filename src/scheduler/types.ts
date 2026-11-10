@@ -13,6 +13,7 @@ export type Card = {
     deckId: string;
     front: string; // the question side
     back: string; // the answer side
+    deletedAt: number | null;
 
     stability: number | null; // days until recall drops to 90%. null = never studied
     difficulty: number | null; // 1 (easy) to 10 (hard). null = never studied
@@ -27,6 +28,7 @@ export type Card = {
 export type Deck = {
     id: string;
     name: string;
+    deletedAt: number | null;
     // null = top-level deck, string means child of another deck
     parentDeckId: string | null;
 };

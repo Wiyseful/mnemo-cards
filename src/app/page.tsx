@@ -36,6 +36,7 @@ export default function HomePage() {
 
         const newDeck: Deck = {
             id: crypto.randomUUID(),
+            deletedAt: null,
             name: newDeckName.trim(),
             parentDeckId: null,
         };
@@ -46,9 +47,10 @@ export default function HomePage() {
         setNewDeckName("");
     };
 
-    const deleteDeck = () => {
-        const removedDeck = decks
-        const updatedDecks = [...decks, removedDeck];
+    const deleteDeck = (deckId: string) => {
+        const updatedDecks = decks.filter((deck) => deck.id !== deckId);
+        setDecks(updatedDecks);
+        saveDecks(updatedDecks);
     }
 
     const cardsInDeck = (deckId: string) => cards.filter((card) => card.deckId === deckId);

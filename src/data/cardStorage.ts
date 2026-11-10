@@ -14,6 +14,10 @@ export function loadSavedCards(): Card[] | null {
         return null;
     }
     const savedCards = (JSON.parse(savedCardsText)) as Card[];
-    const migratedCards = savedCards.map((card) => ({...card, deckId: card.deckId ?? SAMPLE_DECK_ID}));
+    const migratedCards = savedCards.map((card) => ({
+        ...card,
+        deckId: card.deckId ?? SAMPLE_DECK_ID,
+        deletedAt: card.deletedAt ?? null,
+    }));
     return migratedCards;
 }
