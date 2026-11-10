@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import {type FormEvent, useEffect, useState} from "react";
 import Link from "next/link";
 import { sampleCards, sampleDecks } from "@/data/sampleCards";
 import { loadSavedCards } from "@/data/cardStorage";
@@ -8,6 +8,7 @@ import { dueCardIdsInOrder } from "@/scheduler/sessionQueue";
 import { MEMORY_FORECAST_DAYS, memoryPercentForecast } from "@/scheduler/averageRecallChance";
 import {loadSavedDecks, saveDecks} from "@/data/deckStorage";
 import type {Deck} from "@/scheduler/types";
+import type { FormEvent } from "react";
 
 export default function HomePage() {
     const [cards, setCards] = useState(sampleCards);
@@ -30,17 +31,22 @@ export default function HomePage() {
     }, []);
 
 
-    const createDeck = (newDeckName: string) => {
+    const createDeck = (event: FormEvent) => {
+        event.preventDefault();
+        if (newDeckName.trim() === "") return;
+
         const newDeck: Deck = {
             id: crypto.randomUUID(),
-            name: newDeckName,
+            name: newDeckName.trim(),
             parentDeckId: null,
         };
 
         const updatedDecks = [...decks, newDeck];
         setDecks(updatedDecks);
         saveDecks(updatedDecks);
+        setNewDeckName("");
     };
+
 
     const cardsInDeck = (deckId: string) => cards.filter((card) => card.deckId === deckId);
 
@@ -67,7 +73,10 @@ export default function HomePage() {
                     </li>
                 ))}
             </ul>
-            <input value = {newDeckName} onChange={(event)=> setNewDeckName(event.target.value)}/>
+            <form onSubmit={createDeck}>
+                <input value={newDeckName} onChange={(event) => setNewDeckName(event.target.value)} />
+                <button type="submit">New deck</button>
+            </form>
         </main>
     );
 }
