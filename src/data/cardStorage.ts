@@ -1,4 +1,5 @@
 import type {Card} from "@/scheduler/types";
+import {SAMPLE_DECK_ID} from "./sampleCards";
 
 const STORAGE_KEY = "mnemo-cards";
 
@@ -12,5 +13,7 @@ export function loadSavedCards(): Card[] | null {
     if (savedCardsText === null) {
         return null;
     }
-    return JSON.parse(savedCardsText) as Card[];
+    const savedCards = (JSON.parse(savedCardsText)) as Card[];
+    const migratedCards = savedCards.map((card) => ({...card, deckId: card.deckId ?? SAMPLE_DECK_ID}));
+    return migratedCards;
 }

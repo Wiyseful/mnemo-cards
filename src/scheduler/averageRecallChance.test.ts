@@ -7,6 +7,7 @@ const TEST_CURRENT_TIME_MS = 1_700_000_000_000;
 
 const unstudiedCard: Card = {
     id: "1",
+    deckId: "test-deck",
     front: "Q",
     back: "A",
     stability: null,
