@@ -224,7 +224,7 @@ export default function StudyPage() {
 
                     {isAnswerShown && (
                         <div
-                            className="grid grid-cols-4 divide-x-4 divide-gray-200 border-t-4 border-gray-200 bg-gray-50">
+                            className="grid grid-cols-4 divide-x-3 divide-gray-200 border-t-3 border-gray-200 bg-gray-50">
                             {(["Again", "Hard", "Good", "Easy"] as const).map((rating) => (
                                 <button
                                     key={rating}
