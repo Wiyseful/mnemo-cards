@@ -6,17 +6,41 @@ import { sampleCards, sampleDecks } from "@/data/sampleCards";
 import { loadSavedCards } from "@/data/cardStorage";
 import { dueCardIdsInOrder } from "@/scheduler/sessionQueue";
 import { MEMORY_FORECAST_DAYS, memoryPercentForecast } from "@/scheduler/averageRecallChance";
+import {loadSavedDecks, saveDecks} from "@/data/deckStorage";
+import type {Deck} from "@/scheduler/types";
 
 export default function HomePage() {
     const [cards, setCards] = useState(sampleCards);
+    const [decks, setDecks] = useState(sampleDecks);
+    const [newDeckName, setNewDeckName] = useState("");
 
-    // on page open: swap in saved progress, if there is any
+    // on page open: swap in saved progress if there is any
     useEffect(() => {
         const savedCards = loadSavedCards();
         if (savedCards !== null) {
             setCards(savedCards);
         }
     }, []);
+
+    useEffect(() => {
+        const savedDecks = loadSavedDecks();
+        if (savedDecks !== null) {
+            setDecks(savedDecks);
+        }
+    }, []);
+
+
+    const createDeck = (newDeckName: string) => {
+        const newDeck: Deck = {
+            id: crypto.randomUUID(),
+            name: newDeckName,
+            parentDeckId: null,
+        };
+
+        const updatedDecks = [...decks, newDeck];
+        setDecks(updatedDecks);
+        saveDecks(updatedDecks);
+    };
 
     const cardsInDeck = (deckId: string) => cards.filter((card) => card.deckId === deckId);
 
@@ -28,11 +52,12 @@ export default function HomePage() {
     const memoryPercentForDeck = (deckId: string) =>
         memoryPercentForecast(cardsInDeck(deckId), Date.now());
 
+
     return (
         <main>
             <h1>Decks</h1>
             <ul>
-                {sampleDecks.map((deck) => (
+                {decks.map((deck) => (
                     <li key={deck.id}>
                         <Link href={`/deck/${deck.id}`}>{deck.name}</Link>
                         {" · "}
@@ -42,6 +67,7 @@ export default function HomePage() {
                     </li>
                 ))}
             </ul>
+            <input value = {newDeckName} onChange={(event)=> setNewDeckName(event.target.value)}/>
         </main>
     );
 }

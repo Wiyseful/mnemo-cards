@@ -1,19 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useParams } from "next/navigation";
-import { Brain, Clock, Inbox, Pointer, X } from "lucide-react";
+import { Brain, Check, Clock, Coffee, Inbox, Pointer, X } from "lucide-react";
 import { sampleCards } from "@/data/sampleCards";
 import { loadSavedCards, saveCards } from "@/data/cardStorage";
 import { applyRating } from "@/scheduler/applyRating";
 import { formatDuration } from "@/scheduler/formatDuration";
 import { MEMORY_FORECAST_DAYS, memoryPercentForecast } from "@/scheduler/averageRecallChance";
 import { queueAfterRating, dueCardIdsInOrder } from "@/scheduler/sessionQueue";
-
 import type { Rating } from "@/scheduler/types";
 
 const PROBLEM_CARD_FORGET_LIMIT = 5;
-
 
 // the ratings shown as buttons, in order (Hard isn't used)
 const BUTTON_RATINGS = ["Again", "Good", "Easy"] as const;
@@ -56,6 +55,8 @@ export default function StudyPage() {
     const [sessionCardCount, setSessionCardCount] = useState(sessionQueue.length);
     const [hasLoadedSavedCards, setHasLoadedSavedCards] = useState(false);
     const [missedCardIds, setMissedCardIds] = useState<string[]>([]);
+    // when the last card was finished, so the timer stops on the done screen
+    const [sessionFinishedAtMs, setSessionFinishedAtMs] = useState<number | null>(null);
 
     // only this deck's cards. `cards` still has every deck so saving keeps them all
     const deckCards = cards.filter((card) => card.deckId === deckId);
@@ -85,7 +86,13 @@ export default function StudyPage() {
 
         const ratedCard = applyRating(currentCard, rating, Date.now());
         setCards(cards.map((card) => (card.id === currentCard.id ? ratedCard : card)));
-        setSessionQueue(queueAfterRating(sessionQueue, rating));
+
+        const updatedSessionQueue = queueAfterRating(sessionQueue, rating);
+        setSessionQueue(updatedSessionQueue);
+        if (updatedSessionQueue.length === 0) {
+            setSessionFinishedAtMs(Date.now());
+        }
+
         setIsAnswerShown(false);
     };
 
@@ -145,16 +152,92 @@ export default function StudyPage() {
         return <main className="min-h-screen bg-gray-50" />;
     }
 
+    // once finished, count up to the finish time instead of now, so the timer stops
+    const elapsedStudyTimeMs =
+        sessionStartedAtMs === null
+            ? 0
+            : Math.max(0, (sessionFinishedAtMs ?? currentTimeMs) - sessionStartedAtMs);
+
+    // how much of this deck you'd remember if you stopped studying now
+    const deckMemoryPercent = memoryPercentForecast(deckCards, currentTimeMs);
+
+    // when the next card in this deck comes back. null if the deck has no cards
+    const nextDueAtMs =
+        deckCards.length > 0 ? Math.min(...deckCards.map((card) => card.dueAt)) : null;
+
     if (!currentCard) {
+        // nothing was due when the deck opened, so there was no session to finish
+        const hasStudiedThisSession = sessionCardCount > 0;
+        const isDeckEmpty = deckCards.length === 0;
+
         return (
-            <main className="min-h-screen flex items-center justify-center bg-gray-50 p-8">
-                <p className="text-xl">All done for now!</p>
+            <main className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
+                <div className="w-full max-w-md rounded-2xl bg-white p-8 text-center shadow-md sm:p-10">
+                    {hasStudiedThisSession ? (
+                        <>
+                            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-green-100">
+                                <Check className="h-7 w-7 text-green-600" />
+                            </div>
+                            <h1 className="mt-4 text-2xl font-semibold text-gray-800">Session complete</h1>
+
+                            <p className="mt-6 text-6xl font-bold tabular-nums text-gray-900">{deckMemoryPercent}%</p>
+                            <p className="mt-2 text-sm text-gray-500">
+                                of this deck stays with you for {MEMORY_FORECAST_DAYS} days
+                            </p>
+
+                            <div className="mt-8 grid grid-cols-3 divide-x divide-gray-200 rounded-xl bg-gray-50 py-4">
+                                <div>
+                                    <p className="text-xl font-semibold tabular-nums text-gray-800">{sessionCardCount}</p>
+                                    <p className="text-xs text-gray-500">reviewed</p>
+                                </div>
+                                <div>
+                                    <p
+                                        className={`text-xl font-semibold tabular-nums ${
+                                            missedCardIds.length > 0 ? "text-red-500" : "text-gray-800"
+                                        }`}
+                                    >
+                                        {missedCardIds.length}
+                                    </p>
+                                    <p className="text-xs text-gray-500">forgotten</p>
+                                </div>
+                                <div>
+                                    <p className="text-xl font-semibold tabular-nums text-gray-800">
+                                        {formatStopwatch(elapsedStudyTimeMs)}
+                                    </p>
+                                    <p className="text-xs text-gray-500">studied</p>
+                                </div>
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-gray-100">
+                                <Coffee className="h-7 w-7 text-gray-500" />
+                            </div>
+                            <h1 className="mt-4 text-2xl font-semibold text-gray-800">
+                                {isDeckEmpty ? "No cards yet" : "Nothing due right now"}
+                            </h1>
+                        </>
+                    )}
+
+                    {nextDueAtMs !== null && (
+                        <p className="mt-6 text-sm text-gray-500">
+                            Next card due in{" "}
+                            <span className="font-medium text-gray-700">
+                                {formatDuration(Math.max(0, nextDueAtMs - currentTimeMs))}
+                            </span>
+                        </p>
+                    )}
+
+                    <Link
+                        href="/"
+                        className="mt-6 inline-block rounded-full bg-gray-900 px-6 py-2.5 text-sm font-medium text-white hover:bg-gray-700"
+                    >
+                        Back to decks
+                    </Link>
+                </div>
             </main>
         );
     }
-
-    const elapsedStudyTimeMs =
-        sessionStartedAtMs === null ? 0 : Math.max(0, currentTimeMs - sessionStartedAtMs);
 
     // how far through today's cards: finished / total
     const finishedCardCount = sessionCardCount - sessionQueue.length;
@@ -164,9 +247,6 @@ export default function StudyPage() {
     // 5 finished cards / 20 total cards = 0.25 * 100 = 25%
     const sessionProgressPercent =
         sessionCardCount > 0 ? (finishedCardCount / sessionCardCount) * 100 : 0;
-
-    // how much of this deck you'd remember if you stopped studying now
-    const deckMemoryPercent = memoryPercentForecast(deckCards, currentTimeMs);
 
     // text like "3 d": how long until the card comes back if this rating is picked
     const timeUntilDueText = (rating: Rating) => {
@@ -194,6 +274,7 @@ export default function StudyPage() {
                 {/* left: deck memory */}
                 <div
                     className="flex items-center gap-1.5"
+                    title={`Average chance you'd remember each card in ${MEMORY_FORECAST_DAYS} days`}
                 >
                     <Brain className="h-4 w-4" />
                     <span className="font-medium tabular-nums text-gray-700">{deckMemoryPercent}%</span>
