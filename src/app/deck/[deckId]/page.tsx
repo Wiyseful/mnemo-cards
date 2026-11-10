@@ -1,15 +1,16 @@
 "use client";
 
-import {useEffect, useState} from "react";
-import {sampleCards} from "@/data/sampleCards";
-import {applyRating} from "@/scheduler/applyRating";
-import {formatDuration} from "@/scheduler/formatDuration";
-import type {Rating} from "@/scheduler/types";
-import {averageRecallChance} from "@/scheduler/averageRecallChance";
-import {queueAfterRating, dueCardIdsInOrder} from "@/scheduler/sessionQueue";
-import {loadSavedCards, saveCards} from "@/data/cardStorage";
+import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
 import { Brain, Clock, Inbox, Pointer, X } from "lucide-react";
-import {MS_PER_DAY} from "@/scheduler/time";
+import { sampleCards } from "@/data/sampleCards";
+import { loadSavedCards, saveCards } from "@/data/cardStorage";
+import { applyRating } from "@/scheduler/applyRating";
+import { formatDuration } from "@/scheduler/formatDuration";
+import { averageRecallChance } from "@/scheduler/averageRecallChance";
+import { queueAfterRating, dueCardIdsInOrder } from "@/scheduler/sessionQueue";
+import { MS_PER_DAY } from "@/scheduler/time";
+import type { Rating } from "@/scheduler/types";
 
 const PROBLEM_CARD_FORGET_LIMIT = 5;
 const MEMORY_FORECAST_DAYS = 7;
@@ -40,14 +41,24 @@ function formatStopwatch(durationMs: number): string {
 }
 
 export default function StudyPage() {
+    // the deck id from the address, like "cs-fundamentals" in /deck/cs-fundamentals
+    const { deckId } = useParams<{ deckId: string }>();
     const [isAnswerShown, setIsAnswerShown] = useState(false);
     const [cards, setCards] = useState(sampleCards);
     const [sessionStartedAtMs, setSessionStartedAtMs] = useState<number | null>(null);
     const [currentTimeMs, setCurrentTimeMs] = useState(Date.now());
-    const [sessionQueue, setSessionQueue] = useState(dueCardIdsInOrder(sampleCards, currentTimeMs));
+    const [sessionQueue, setSessionQueue] = useState(
+        dueCardIdsInOrder(
+            sampleCards.filter((card) => card.deckId === deckId),
+            currentTimeMs,
+        ),
+    );
     const [sessionCardCount, setSessionCardCount] = useState(sessionQueue.length);
     const [hasLoadedSavedCards, setHasLoadedSavedCards] = useState(false);
     const [missedCardIds, setMissedCardIds] = useState<string[]>([]);
+
+    // only this deck's cards. `cards` still has every deck so saving keeps them all
+    const deckCards = cards.filter((card) => card.deckId === deckId);
 
     const currentCard = cards.find((card) => card.id === sessionQueue[0]);
 
@@ -91,8 +102,10 @@ export default function StudyPage() {
             setHasLoadedSavedCards(true);
             return;
         }
-        setCards(savedCards);
-        const savedSessionQueue = dueCardIdsInOrder(savedCards, Date.now());
+        setCards(savedCards); // still ALL cards, so saving keeps every deck
+
+        const savedDeckCards = savedCards.filter((card) => card.deckId === deckId);
+        const savedSessionQueue = dueCardIdsInOrder(savedDeckCards, Date.now());
         setSessionQueue(savedSessionQueue);
         setSessionCardCount(savedSessionQueue.length);
         setHasLoadedSavedCards(true);
@@ -129,7 +142,7 @@ export default function StudyPage() {
 
     // show a blank page until saved progress is loaded, so the sample cards don't flash first
     if (!hasLoadedSavedCards) {
-        return <main className="min-h-screen bg-gray-50"/>;
+        return <main className="min-h-screen bg-gray-50" />;
     }
 
     if (!currentCard) {
@@ -146,14 +159,16 @@ export default function StudyPage() {
     // how far through today's cards: finished / total
     const finishedCardCount = sessionCardCount - sessionQueue.length;
     // how much of the bar is red: cards forgotten this session / total
-    const missedProgressPercent = sessionCardCount > 0 ? (missedCardIds.length / sessionCardCount) * 100 : 0;
+    const missedProgressPercent =
+        sessionCardCount > 0 ? (missedCardIds.length / sessionCardCount) * 100 : 0;
     // 5 finished cards / 20 total cards = 0.25 * 100 = 25%
     const sessionProgressPercent =
         sessionCardCount > 0 ? (finishedCardCount / sessionCardCount) * 100 : 0;
 
-
-    // average chance of remembering each card in the deck right now, as a whole percent
-    const deckRecallPercent = Math.round(averageRecallChance(cards, currentTimeMs + MEMORY_FORECAST_DAYS * MS_PER_DAY) * 100);
+    // average chance of remembering each card in this deck a week from now, as a whole percent
+    const deckRecallPercent = Math.round(
+        averageRecallChance(deckCards, currentTimeMs + MEMORY_FORECAST_DAYS * MS_PER_DAY) * 100,
+    );
 
     // text like "3 d": how long until the card comes back if this rating is picked
     const timeUntilDueText = (rating: Rating) => {
@@ -183,7 +198,7 @@ export default function StudyPage() {
                     className="flex items-center gap-1.5"
                     title="Average chance you'd remember each card a week from now"
                 >
-                    <Brain className="h-4 w-4 " />
+                    <Brain className="h-4 w-4" />
                     <span className="font-medium tabular-nums text-gray-700">{deckRecallPercent}%</span>
                     <span>memory</span>
                 </div>
@@ -247,16 +262,18 @@ export default function StudyPage() {
                 </div>
 
                 {!isAnswerShown && (
-                    <p className="mx-auto mt-6 w-fit rounded-full bg-gray-100 px-5 py-2 text-sm text-gray-400 hidden pointer-fine:block">
-                        Press <kbd
-                        className="mx-1 rounded-md border border-gray-300 bg-white px-2 py-0.5 text-xs text-gray-600 shadow-sm">SPACE</kbd> to
-                        reveal the answer
+                    <p className="mx-auto mt-6 hidden w-fit rounded-full bg-gray-100 px-5 py-2 text-sm text-gray-400 pointer-fine:block">
+                        Press{" "}
+                        <kbd className="mx-1 rounded-md border border-gray-300 bg-white px-2 py-0.5 text-xs text-gray-600 shadow-sm">
+                            SPACE
+                        </kbd>{" "}
+                        to reveal the answer
                     </p>
                 )}
 
                 {!isAnswerShown && (
-                    <p className="mx-auto mt-6 w-fit rounded-full bg-gray-100 px-5 py-2 text-sm text-gray-400 hidden pointer-coarse:flex gap-2">
-                        <Pointer className="h-4 w-4"/> Tap card to reveal answer
+                    <p className="mx-auto mt-6 hidden w-fit gap-2 rounded-full bg-gray-100 px-5 py-2 text-sm text-gray-400 pointer-coarse:flex">
+                        <Pointer className="h-4 w-4" /> Tap card to reveal answer
                     </p>
                 )}
             </div>
