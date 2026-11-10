@@ -175,7 +175,7 @@ export default function StudyPage() {
                     className="flex items-center gap-1.5"
                     title="Average chance you'd remember each card a week from now"
                 >
-                    <Brain className="h-4 w-4 -translate-y-px" />
+                    <Brain className="h-4 w-4 " />
                     <span className="font-medium tabular-nums text-gray-700">{deckRecallPercent}%</span>
                     <span>memory</span>
                 </div>
@@ -183,13 +183,13 @@ export default function StudyPage() {
                 {/* middle: cards done this session, and cards forgotten */}
                 <div className="flex items-center justify-center gap-4 tabular-nums">
                     <div className="flex items-center gap-1.5">
-                        <Inbox className="h-4 w-4 -translate-y-px" />
+                        <Inbox className="h-4 w-4" />
                         <span className="font-medium text-gray-700">{finishedCardCount}</span>
                         <span className="text-gray-400">/ {sessionCardCount}</span>
                     </div>
                     {missedCardIds.length > 0 && (
                         <div className="flex items-center gap-1 text-red-500">
-                            <X className="h-4 w-4 -translate-y-px" />
+                            <X className="h-4 w-4" />
                             <span className="font-medium">{missedCardIds.length}</span>
                         </div>
                     )}
@@ -197,7 +197,7 @@ export default function StudyPage() {
 
                 {/* right: study timer */}
                 <div className="flex items-center justify-end gap-1.5 tabular-nums">
-                    <Clock className="h-4 w-4 -translate-y-px" />
+                    <Clock className="h-4 w-4" />
                     <span className="font-medium text-gray-700">{formatStopwatch(elapsedStudyTimeMs)}</span>
                 </div>
             </div>
