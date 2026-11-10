@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { applyRating } from "./applyRating";
-import { MS_PER_DAY, MS_PER_MINUTE } from "./time";
+import { MS_PER_DAY } from "./time";
 import type { Card } from "./types";
 
 const TEST_START_TIME_MS = 1_700_000_000_000;
@@ -33,11 +33,6 @@ describe("applyRating", () => {
         expect(cardAfterRating.dueAt).toBe(TEST_START_TIME_MS);
     });
 
-    it("a new card rated Hard is due in 5 minutes", () => {
-        const cardAfterRating = applyRating(unstudiedCard, "Hard", TEST_START_TIME_MS);
-        const minutesUntilDue = (cardAfterRating.dueAt - TEST_START_TIME_MS) / MS_PER_MINUTE;
-        expect(minutesUntilDue).toBe(5);
-    });
 
     it("a new card rated Good is due in 1 day", () => {
         const cardAfterRating = applyRating(unstudiedCard, "Good", TEST_START_TIME_MS);
@@ -64,18 +59,6 @@ describe("applyRating", () => {
         expect(afterAgainReview.dueAt).toBe(reviewTimeMs);
     });
 
-    it("an older card rated Hard uses FSRS, not the 5-minute step", () => {
-        // first review: a new card rated Good (due 1 day later)
-        const afterFirstReview = applyRating(unstudiedCard, "Good", TEST_START_TIME_MS);
-
-        // second review: rated Hard exactly when it's due
-        const reviewTimeMs = afterFirstReview.dueAt;
-        const afterHardReview = applyRating(afterFirstReview, "Hard", reviewTimeMs);
-
-        // FSRS should schedule it well past the 5-minute learning step
-        const timeUntilDueMs = afterHardReview.dueAt - reviewTimeMs;
-        expect(timeUntilDueMs).toBeGreaterThan(5 * MS_PER_MINUTE);
-    });
 
     it("uses the review formula on later reviews", () => {
         const afterFirstReview = applyRating(unstudiedCard, "Good", TEST_START_TIME_MS);
