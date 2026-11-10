@@ -8,6 +8,7 @@ import type {Rating} from "@/scheduler/types";
 import {averageRecallChance} from "@/scheduler/averageRecallChance";
 import {queueAfterRating, dueCardIdsInOrder} from "@/scheduler/sessionQueue";
 import {loadSavedCards, saveCards} from "@/data/cardStorage";
+import {Pointer} from "lucide-react";
 
 const PROBLEM_CARD_FORGET_LIMIT = 5;
 
@@ -191,8 +192,14 @@ export default function StudyPage() {
                 </div>
 
                 {!isAnswerShown && (
-                    <p className="mx-auto mt-6 w-fit rounded-full bg-gray-100 px-5 py-2 text-sm text-gray-400">
+                    <p className="mx-auto mt-6 w-fit rounded-full bg-gray-100 px-5 py-2 text-sm text-gray-400 hidden pointer-fine:block">
                         Press <kbd className="mx-1 rounded-md border border-gray-300 bg-white px-2 py-0.5 text-xs text-gray-600 shadow-sm">SPACE</kbd> to reveal the answer
+                    </p>
+                )}
+
+                {!isAnswerShown && (
+                    <p className="mx-auto mt-6 w-fit rounded-full bg-gray-100 px-5 py-2 text-sm text-gray-400 hidden pointer-coarse:flex gap-2">
+                        <Pointer className="h-4 w-4" /> Tap card to reveal answer
                     </p>
                 )}
             </div>
