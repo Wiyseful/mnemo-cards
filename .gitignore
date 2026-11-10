@@ -162,3 +162,5 @@ next-env.d.ts
 AGENTS.md
 
 practice/
+.vercel
+.env*
