@@ -47,6 +47,17 @@ export default function DeckPage() {
         frontInputRef.current?.focus();
     }
 
+    // moves one card to the trash. nothing is erased yet
+    const deleteCard = (cardId: string) => {
+        const deletedAtMs = Date.now();
+
+        const updatedCards = cards.map((card) =>
+            card.id === cardId ? { ...card, deletedAt: deletedAtMs } : card,
+        );
+        setCards(updatedCards);
+        saveCards(updatedCards);
+    };
+
 
     // this deck's cards, skipping any in the trash
     const deckCards = cards.filter((card) => card.deckId === deckId && card.deletedAt === null);
@@ -95,6 +106,7 @@ export default function DeckPage() {
                     <li key={card.id}>
                         <p>{card.front}</p>
                         <p>{card.back}</p>
+                        <button onClick={() => deleteCard(card.id)}>Delete</button>
                     </li>
                 ))}
             </ul>
