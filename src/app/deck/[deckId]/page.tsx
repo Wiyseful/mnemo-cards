@@ -1,6 +1,6 @@
 "use client";
 
-import {type SubmitEvent, useEffect, useState} from "react";
+import {type SubmitEvent, useEffect, useState, useRef} from "react";
 import Link from "next/link";
 import {useParams} from "next/navigation";
 import {sampleCards, sampleDecks} from "@/data/sampleCards";
@@ -18,6 +18,7 @@ export default function DeckPage() {
     const [hasLoadedSavedData, setHasLoadedSavedData] = useState(false);
     const [newCardFront, setNewCardFront] = useState("");
     const [newCardBack, setNewCardBack] = useState("");
+    const frontInputRef = useRef<HTMLInputElement>(null);
 
     // on page open: swap in saved decks and cards
     useEffect(() => {
@@ -43,6 +44,7 @@ export default function DeckPage() {
         saveCards(updatedCards);
         setNewCardFront("");
         setNewCardBack("");
+        frontInputRef.current?.focus();
     }
 
 
@@ -74,6 +76,7 @@ export default function DeckPage() {
             <p>Due count: {dueCardCount}</p>
             <form onSubmit={createCard}>
                 <input
+                    ref={frontInputRef}
                     value={newCardFront}
                     onChange={(event) => setNewCardFront(event.target.value)}
                     placeholder="Front"
