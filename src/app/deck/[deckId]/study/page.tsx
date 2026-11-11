@@ -61,7 +61,7 @@ export default function StudyPage() {
     const [sessionFinishedAtMs, setSessionFinishedAtMs] = useState<number | null>(null);
 
     // only this deck's cards. `cards` still has every deck so saving keeps them all
-    const deckCards = cards.filter((card) => card.deckId === deckId);
+    const deckCards = cards.filter((card) => card.deckId === deckId && card.deletedAt === null);
 
     const currentCard = cards.find((card) => card.id === sessionQueue[0]);
 
@@ -232,11 +232,11 @@ export default function StudyPage() {
 
                     <div className="mt-6 flex justify-center">
                         <Link
-                            href="/"
+                            href={`/deck/${deckId}`}
                             className="inline-flex items-center gap-1.5 rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
                         >
                             <ArrowLeft className="h-4 w-4" />
-                            Back to decks
+                            Back to deck
                         </Link>
                     </div>
                 </div>
