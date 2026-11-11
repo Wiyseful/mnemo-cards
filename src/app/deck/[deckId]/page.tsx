@@ -51,6 +51,8 @@ export default function DeckPage() {
     // this deck's cards, skipping any in the trash
     const deckCards = cards.filter((card) => card.deckId === deckId && card.deletedAt === null);
 
+    const newestFirstCards = deckCards.toReversed();
+
     // how many of them are ready to study.
     const dueCardCount = dueCardIdsInOrder(deckCards, Date.now()).length;
 
@@ -88,6 +90,14 @@ export default function DeckPage() {
                     />
                 <button type="submit">Add card</button>
             </form>
+            <ul>
+                {newestFirstCards.map((card) => (
+                    <li key={card.id}>
+                        <p>{card.front}</p>
+                        <p>{card.back}</p>
+                    </li>
+                ))}
+            </ul>
         </main>
     );
 }
