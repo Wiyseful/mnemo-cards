@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { FormEvent } from "react";
+import type { SubmitEvent } from "react";
 import Link from "next/link";
 import { Brain, Folder, Plus, Trash2 } from "lucide-react";
 import { sampleCards, sampleDecks } from "@/data/sampleCards";
@@ -32,7 +32,7 @@ export default function HomePage() {
     }, []);
 
     // adds a deck with the typed name, then clears the box
-    const createDeck = (event: FormEvent) => {
+    const createDeck = (event: SubmitEvent<HTMLFormElement>) => {
         event.preventDefault(); // stop the form from reloading the page
         if (newDeckName.trim() === "") return;
 
