@@ -1,70 +1,101 @@
-import type { Card } from "@/scheduler/types";
+import type { Card, Deck } from "@/scheduler/types";
+import { createUnstudiedCard } from "@/data/createUnstudiedCard";
 
-function createUnstudiedCard(id: string, front: string, back: string): Card {
-    return {
-        id,
-        front,
-        back,
-        stability: null,
-        difficulty: null,
-        lastReviewedAt: null,
-        dueAt: 0, // 0 = long ago, so new cards are due right away
-        reviewCount: 0,
-        forgetCount: 0,
-        studyPhase: "New",
-    };
-}
+export const SAMPLE_DECK_ID = "cs-fundamentals";
+
+export const sampleDecks: Deck[] = [
+    { id: SAMPLE_DECK_ID, name: "CS Fundamentals", parentDeckId: null, deletedAt: null },
+];
 
 export const sampleCards: Card[] = [
     createUnstudiedCard(
         "1",
-        "Explain the core difference between Process and Thread in memory allocation.",
-        "A process is an isolated execution environment with its own dedicated memory space (heap/stack). A thread is a lightweight unit of execution within a process that shares the parent process's heap memory but maintains its own private stack."
+        SAMPLE_DECK_ID,
+        "What is the difference between a variable and a constant?",
+        "A variable holds a value that can change while the program runs. A constant holds a fixed value that cannot be changed once it is set.",
     ),
     createUnstudiedCard(
         "2",
-        "What is the time complexity of a hash table lookup in the worst-case scenario, and why?",
-        "O(n). This occurs when a poor hash function or high load factor causes massive hash collisions, forcing the system to traverse a single long linked list or tree chain (chaining strategy) at a specific bucket index."
+        SAMPLE_DECK_ID,
+        "What is the main difference between an Array and a List?",
+        "An array has a fixed size set when you create it. A list can dynamically grow or shrink in size as you add or remove items.",
     ),
     createUnstudiedCard(
         "3",
-        "What is the primary architectural purpose of a B-Tree or B+ Tree database index?",
-        "To minimize disk I/O operations. By maintaining a self-balancing, wide, and shallow tree structures with high branching factors, the system can locate any row ID in millions of records within 3 to 4 sequential disk page reads."
+        SAMPLE_DECK_ID,
+        "What is an infinite loop, and how do you avoid it?",
+        "A loop that never stops running because its exit condition is never met. You avoid it by making sure the loop variable updates properly on every turn.",
     ),
     createUnstudiedCard(
         "4",
-        "In a relational database, what is the operational difference between an INNER JOIN and a LEFT JOIN?",
-        "An INNER JOIN returns records only when there is a matching value in both tables. A LEFT JOIN returns all records from the left table, along with matching records from the right table, filling with NULL values if no match exists."
+        SAMPLE_DECK_ID,
+        "What is the difference between a function parameter and a function argument?",
+        "A parameter is the placeholder variable defined in the function definition. An argument is the actual value you pass into the function when you call it.",
     ),
     createUnstudiedCard(
         "5",
-        "Explain the concept of Idempotency in RESTful API design.",
-        "An API endpoint is idempotent if making multiple identical requests has the exact same side-effect on the server as making a single request. GET, PUT, and DELETE are designed to be idempotent; POST is typically not."
+        SAMPLE_DECK_ID,
+        "What are the four basic data types used in programming?",
+        "Integers (whole numbers), Floats (decimal numbers), Booleans (true/false), and Strings (text).",
     ),
     createUnstudiedCard(
         "6",
-        "What is the difference between Optimistic and Pessimistic concurrency control in systems architecture?",
-        "Pessimistic locking locks records immediately upon retrieval, blocking other threads until the transaction completes. Optimistic locking does not lock rows up front; instead, it validates whether the record was modified by another transaction (usually via a version number) right before writing."
+        SAMPLE_DECK_ID,
+        "What does an If-Else statement do in code?",
+        "It controls the flow of a program by running one block of code if a condition is true, and a different block of code if it is false.",
     ),
     createUnstudiedCard(
         "7",
-        "Describe the purpose and mechanics of a Deadlock in multithreading.",
-        "A deadlock occurs when two or more threads are permanently blocked because each thread is holding a resource that the other thread requires, creating a circular dependency cycle where neither can proceed."
+        SAMPLE_DECK_ID,
+        "What is the difference between the assignment operator (=) and the comparison operator (==)?",
+        "A single equals sign (=) stores a value inside a variable. A double equals sign (==) checks if two values are equal to each other.",
     ),
     createUnstudiedCard(
         "8",
-        "What does the CAP Theorem state about distributed system databases?",
-        "It states that a distributed system can guarantee at most two out of three characteristics simultaneously: Consistency (every read receives the most recent write or an error), Availability (every non-failing node returns a non-error response), and Partition Tolerance (the system continues to operate despite arbitrary message loss or network delays)."
+        SAMPLE_DECK_ID,
+        "What is a compiler?",
+        "A software tool that translates human-readable source code into machine code (0s and 1s) all at once before the program runs.",
     ),
     createUnstudiedCard(
         "9",
-        "In networking, how does a TCP handshake establish a reliable connection?",
-        "It uses a three-step synchronization sequence: 1. The client sends a SYN (Synchronize) packet. 2. The server responds with a SYN-ACK packet. 3. The client replies with an ACK (Acknowledge) packet, establishing an open socket session."
+        SAMPLE_DECK_ID,
+        "What is the difference between a For loop and a While loop?",
+        "A For loop is best when you know exactly how many times you want to repeat code. A While loop is best when you want to repeat code until a certain condition changes.",
     ),
     createUnstudiedCard(
         "10",
-        "What is the structural difference between an Abstract Class and an Interface in OOP?",
-        "An abstract class defines an identity and shared state, allowing you to inherit instance fields and fully implemented methods (single inheritance). An interface defines a behavioral contract, requiring implementing classes to build out the methods from scratch (multiple inheritance)."
-    )
+        SAMPLE_DECK_ID,
+        "What is debugging?",
+        "The process of finding, tracking down, and fixing errors (bugs) in a software program.",
+    ),
+    createUnstudiedCard(
+        "11",
+        SAMPLE_DECK_ID,
+        "What does it mean when an index is out of bounds?",
+        "An error that happens when you try to access an element at a position that does not exist in an array or list (like trying to get the 5th item of a 3-item list).",
+    ),
+    createUnstudiedCard(
+        "12",
+        SAMPLE_DECK_ID,
+        "What is the function of the Return keyword in a program?",
+        "It exits a function immediately and passes a specific value back to the piece of code that called the function.",
+    ),
+    createUnstudiedCard(
+        "13",
+        SAMPLE_DECK_ID,
+        "What is a Null pointer or Null reference error?",
+        "An error that happens when your code tries to use or look at an object variable that is currently empty and points to nothing (null).",
+    ),
+    createUnstudiedCard(
+        "14",
+        SAMPLE_DECK_ID,
+        "What is recursion in computer science?",
+        "A programming technique where a function solves a problem by calling itself.",
+    ),
+    createUnstudiedCard(
+        "15",
+        SAMPLE_DECK_ID,
+        "What is the difference between source code and machine code?",
+        "Source code is written by humans in high-level programming languages (like Python or JavaScript). Machine code consists of binary instructions (0s and 1s) directly read by the computer CPU.",
+    ),
 ];
-

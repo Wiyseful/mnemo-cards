@@ -7,6 +7,7 @@ const TEST_START_TIME_MS = 1_700_000_000_000;
 
 const unstudiedCard: Card = {
     id: "1",
+    deckId: "test-deck",
     front: "Q",
     back: "A",
     stability: null,
@@ -16,6 +17,7 @@ const unstudiedCard: Card = {
     reviewCount: 0,
     forgetCount: 0,
     studyPhase: "New",
+    deletedAt: null,
 };
 
 describe("applyRating", () => {

@@ -10,8 +10,10 @@ export type StudyPhase = "New" | "Learning" | "Review" | "Relearning";
 
 export type Card = {
     id: string;
+    deckId: string;
     front: string; // the question side
     back: string; // the answer side
+    deletedAt: number | null;
 
     stability: number | null; // days until recall drops to 90%. null = never studied
     difficulty: number | null; // 1 (easy) to 10 (hard). null = never studied
@@ -21,4 +23,12 @@ export type Card = {
     reviewCount: number; // total times the card has been rated
     forgetCount: number; // times the card was rated Again
     studyPhase: StudyPhase;
+};
+
+export type Deck = {
+    id: string;
+    name: string;
+    deletedAt: number | null;
+    // null = top-level deck, string means child of another deck
+    parentDeckId: string | null;
 };
