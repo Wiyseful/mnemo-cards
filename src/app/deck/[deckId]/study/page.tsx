@@ -14,7 +14,7 @@ import type { Rating } from "@/scheduler/types";
 
 const PROBLEM_CARD_FORGET_LIMIT = 5;
 
-// the ratings shown as buttons, in order (Hard isn't used)
+// the ratings shown as buttons
 const BUTTON_RATINGS = ["Again", "Good", "Easy"] as const;
 
 // what each button says. the engine still gets the rating underneath
