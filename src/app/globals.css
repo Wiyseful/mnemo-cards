@@ -1,1 +1,9 @@
 @import "tailwindcss";
+
+@media (pointer: coarse) {
+    input,
+    textarea,
+    select {
+        font-size: max(16px, 1em);
+    }
+}

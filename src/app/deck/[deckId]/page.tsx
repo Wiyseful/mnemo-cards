@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Check, ChevronLeft, Play, Plus, Search, Trash2 } from "lucide-react";
@@ -20,7 +21,7 @@ function describeCardStatus(card: Card, currentTimeMs: number): string {
     return `Due in ${formatDuration(card.dueAt - currentTimeMs)}`;
 }
 
-// studied before and ready again. new cards say "New" instead
+// studied before and ready again. new cards say "New" instead, so they don't count here
 function isCardDue(card: Card, currentTimeMs: number): boolean {
     return card.reviewCount > 0 && card.dueAt <= currentTimeMs;
 }
@@ -35,8 +36,13 @@ function isTypingInTextBox(eventTarget: EventTarget | null): boolean {
     return eventTarget instanceof HTMLInputElement || eventTarget instanceof HTMLTextAreaElement;
 }
 
+// plain Enter moves forward. Shift+Enter still adds a new line
+function isPlainEnter(event: ReactKeyboardEvent): boolean {
+    return event.key === "Enter" && !event.shiftKey;
+}
+
 export default function DeckPage() {
-    // the deck id from the address like "cs-fundamentals" in /deck/cs-fundamentals
+    // the deck id from the address, like "cs-fundamentals" in /deck/cs-fundamentals
     const { deckId } = useParams<{ deckId: string }>();
     const [decks, setDecks] = useState(sampleDecks);
     const [cards, setCards] = useState(sampleCards);
@@ -45,12 +51,13 @@ export default function DeckPage() {
     const [openCardId, setOpenCardId] = useState<string | null>(null);
     const [searchText, setSearchText] = useState("");
 
-    // points at the Front box so the cursor can jump into it for a new card
+    // point at the Front and Back boxes, so the cursor can be moved into them
     const frontTextBoxRef = useRef<HTMLTextAreaElement>(null);
-    // set right before opening a new card so only new cards grab the cursor
+    const backTextBoxRef = useRef<HTMLTextAreaElement>(null);
+    // set right before opening a new card, so only new cards grab the cursor
     const shouldFocusFrontRef = useRef(false);
 
-    // on page open: swap in saved decks and cards
+    // on page open: swap in saved decks and cards, if there are any
     useEffect(() => {
         const savedDecks = loadSavedDecks();
         if (savedDecks !== null) {
@@ -62,12 +69,12 @@ export default function DeckPage() {
             setCards(savedCards);
         }
 
-        setHasLoadedSavedData(true); // both loads are done
+        setHasLoadedSavedData(true); // both loads are done, whether or not anything was saved
     }, []);
 
     const currentTimeMs = Date.now();
 
-    // this deck's cards
+    // this deck's cards, skipping any in the trash
     const deckCards = cards.filter((card) => card.deckId === deckId && card.deletedAt === null);
 
     // how many of them are ready to study. same rule as the study page
@@ -86,13 +93,13 @@ export default function DeckPage() {
 
     const openCard = deckCards.find((card) => card.id === openCardId) ?? null;
 
-    // sets the cards on screen and saves them
+    // sets the cards on screen and saves them, in one step
     const updateCards = (updatedCards: Card[]) => {
         setCards(updatedCards);
         saveCards(updatedCards);
     };
 
-    // every card except the open one.
+    // every card except the open one, if it was left empty. empty cards aren't worth keeping
     const cardsWithoutEmptyOpenCard = () =>
         cards.filter((card) => !(card.id === openCardId && isCardEmpty(card)));
 
@@ -114,7 +121,7 @@ export default function DeckPage() {
         setOpenCardId(newCard.id);
     };
 
-    // saves a change to the open card's front or back as you type
+    // saves a change to the open card's front or back, as you type
     const editOpenCard = (side: "front" | "back", text: string) => {
         updateCards(cards.map((card) => (card.id === openCardId ? { ...card, [side]: text } : card)));
     };
@@ -126,6 +133,22 @@ export default function DeckPage() {
         setOpenCardId(null);
     };
 
+    // Enter in Front: jump to Back
+    const handleFrontKeyDown = (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
+        if (isPlainEnter(event)) {
+            event.preventDefault(); // stop the new line
+            backTextBoxRef.current?.focus();
+        }
+    };
+
+    // Enter in Back: done with this card, start the next one
+    const handleBackKeyDown = (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
+        if (isPlainEnter(event)) {
+            event.preventDefault(); // stop the new line
+            createBlankCard();
+        }
+    };
+
     // put the cursor in Front, but only when a new card was just made
     useEffect(() => {
         if (shouldFocusFrontRef.current) {
@@ -134,7 +157,7 @@ export default function DeckPage() {
         }
     }, [openCardId]);
 
-    // keyboard shortcuts: N new card, Esc close, arrow keys move, Ctrl/⌘+Enter next card while typing
+    // keyboard shortcuts outside the text boxes: N new card, Esc close, arrow keys move
     useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
             if (event.key === "Escape" && openCardId !== null) {
@@ -142,14 +165,8 @@ export default function DeckPage() {
                 return;
             }
 
-            if (isTypingInTextBox(event.target)) {
-                // done with this card: start the next one without touching the mouse
-                if (event.key === "Enter" && (event.metaKey || event.ctrlKey) && openCardId !== null) {
-                    event.preventDefault();
-                    createBlankCard();
-                }
-                return;
-            }
+            // while typing, letters and arrows belong to the text box
+            if (isTypingInTextBox(event.target)) return;
 
             const hasModifierKey = event.metaKey || event.ctrlKey || event.altKey;
             if (event.key.toLowerCase() === "n" && !hasModifierKey) {
@@ -230,7 +247,7 @@ export default function DeckPage() {
                             className="hidden h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg bg-neutral-900 px-3 text-sm font-medium text-white hover:bg-neutral-800 md:flex"
                         >
                             <Play className="h-3 w-3 fill-current" />
-                            Begin
+                            Review
                         </Link>
                     </div>
 
@@ -242,7 +259,7 @@ export default function DeckPage() {
                                 value={searchText}
                                 onChange={(event) => setSearchText(event.target.value)}
                                 placeholder="Search cards"
-                                className="min-w-0 flex-1 bg-transparent text-base text-neutral-900 outline-none placeholder:text-neutral-400 md:text-sm"
+                                className="min-w-0 flex-1 bg-transparent text-sm text-neutral-900 outline-none placeholder:text-neutral-400"
                             />
                         </label>
                         <button
@@ -258,30 +275,43 @@ export default function DeckPage() {
                     </div>
                 </div>
 
-                {/* the card list. it scrolls on its own, so the top part stays put */}
-                <ul className="mt-3 min-h-0 flex-1 space-y-1 overflow-y-auto px-2 pb-28 md:pb-4">
+                {/* the card list. it scrolls on its own, so the top part stays put.
+                    pt-1 gives the first card's border and shadow room, so they aren't cut off */}
+                <ul className="mt-2 min-h-0 flex-1 space-y-2 overflow-y-auto px-3 pb-28 pt-1 md:pb-4">
                     {visibleCards.map((card) => {
                         const isOpen = card.id === openCardId;
                         const isDue = isCardDue(card, currentTimeMs);
                         const isFrontEmpty = card.front.trim() === "";
+                        const isBackEmpty = card.back.trim() === "";
 
                         return (
                             <li key={card.id}>
+                                {/* one card: front, fold, back preview, status */}
                                 <button
                                     onClick={() => switchOpenCard(card.id)}
-                                    className={`w-full rounded-lg px-3 py-2.5 text-left ${
+                                    className={`w-full rounded-xl border bg-white p-3.5 text-left shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-colors ${
                                         isOpen
-                                            ? "bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)] ring-1 ring-neutral-200"
-                                            : "hover:bg-neutral-100"
+                                            ? "border-neutral-500 shadow-[0_2px_8px_rgba(0,0,0,0.08)]"
+                                            : "border-neutral-200 hover:border-neutral-500 hover:bg-neutral-100"
                                     }`}
                                 >
                                     <p
-                                        className={`line-clamp-2 text-[15px] leading-snug ${isFrontEmpty ? "text-neutral-400" : ""}`}
+                                        className={`line-clamp-2 text-[15px] font-medium leading-snug ${isFrontEmpty ? "text-neutral-400" : ""}`}
                                     >
                                         {isFrontEmpty ? "Untitled card" : card.front}
                                     </p>
+
+                                    {/* dashed line between the sides, like a fold */}
+                                    <div className="my-2.5 border-t border-dashed border-neutral-200" />
+
                                     <p
-                                        className={`mt-1 text-xs ${isDue ? "font-medium text-neutral-900" : "text-neutral-400"}`}
+                                        className={`line-clamp-2 text-sm leading-snug ${isBackEmpty ? "text-neutral-300" : "text-neutral-500"}`}
+                                    >
+                                        {isBackEmpty ? "No answer yet" : card.back}
+                                    </p>
+
+                                    <p
+                                        className={`mt-2.5 text-xs ${isDue ? "font-medium text-neutral-900" : "text-neutral-400"}`}
                                     >
                                         {isDue && (
                                             <span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-neutral-900 align-middle" />
@@ -357,6 +387,8 @@ export default function DeckPage() {
                                         ref={frontTextBoxRef}
                                         value={openCard.front}
                                         onChange={(event) => editOpenCard("front", event.target.value)}
+                                        onKeyDown={handleFrontKeyDown}
+                                        enterKeyHint="next"
                                         placeholder="Question"
                                         rows={1}
                                         className="mt-2 block w-full resize-none bg-transparent text-2xl font-medium leading-snug tracking-tight outline-none field-sizing-content placeholder:text-neutral-300"
@@ -371,8 +403,11 @@ export default function DeckPage() {
                                         Back
                                     </span>
                                     <textarea
+                                        ref={backTextBoxRef}
                                         value={openCard.back}
                                         onChange={(event) => editOpenCard("back", event.target.value)}
+                                        onKeyDown={handleBackKeyDown}
+                                        enterKeyHint="done"
                                         placeholder="Answer"
                                         rows={3}
                                         className="mt-2 block min-h-[4lh] w-full resize-none bg-transparent text-lg leading-relaxed text-neutral-700 outline-none field-sizing-content placeholder:text-neutral-300"
@@ -386,7 +421,7 @@ export default function DeckPage() {
                             <span>Reviewed {openCard.reviewCount}×</span>
                             <span>{describeCardStatus(openCard, currentTimeMs)}</span>
                             {openCardRecallPercent !== null && <span>Recall {openCardRecallPercent}%</span>}
-                            <span className="ml-auto hidden pointer-fine:inline">Ctrl/⌘ + Enter for next card</span>
+                            <span className="ml-auto hidden pointer-fine:inline">Enter next · Shift+Enter new line</span>
                         </div>
                     </>
                 ) : (
