@@ -3,35 +3,44 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ArrowLeft, Brain, Check, Clock, Coffee, Inbox, Pointer, X } from "lucide-react";
-import { sampleCards } from "@/data/sampleCards";
+import { ArrowLeft, Check, ChevronLeft, Clock, Coffee, Hand, X } from "lucide-react";
+import { sampleCards, sampleDecks } from "@/data/sampleCards";
 import { loadSavedCards, saveCards } from "@/data/cardStorage";
+import { loadSavedDecks } from "@/data/deckStorage";
 import { applyRating } from "@/scheduler/applyRating";
 import { formatDuration } from "@/scheduler/formatDuration";
 import { MEMORY_FORECAST_DAYS, memoryPercentForecast } from "@/scheduler/averageRecallChance";
 import { queueAfterRating, dueCardIdsInOrder } from "@/scheduler/sessionQueue";
 import type { Rating } from "@/scheduler/types";
 
-const PROBLEM_CARD_FORGET_LIMIT = 5;
 
-// the ratings shown as buttons
+// Hard isn't used. The order matches the swipe directions: left, up, right
 const BUTTON_RATINGS = ["Again", "Good", "Easy"] as const;
 
-// what each button says. the engine still gets the rating underneath
 const BUTTON_LABEL_FOR_RATING: Record<(typeof BUTTON_RATINGS)[number], string> = {
     Again: "Forgot",
     Good: "Recalled",
     Easy: "Instant",
 };
 
-// which rating each number key picks
+
+const KEY_FOR_RATING: Record<(typeof BUTTON_RATINGS)[number], string> = {
+    Again: "1",
+    Good: "2",
+    Easy: "3",
+};
+
 const RATING_FOR_KEY: Record<string, Rating> = {
     "1": "Again",
     "2": "Good",
     "3": "Easy",
 };
 
-// turns a duration into stopwatch text like "4:05"
+// thicker bottom border makes it look like a real key
+// looks like a real key: thin border, thicker bottom edge
+const KEY_STYLE =
+    "inline-flex h-[22px] min-w-[22px] items-center justify-center rounded-md border border-b-2 border-neutral-300 bg-white px-1.5 font-sans text-[11px] font-semibold text-neutral-600";
+// 245000 ms -> "4:05"
 function formatStopwatch(durationMs: number): string {
     const totalSeconds = Math.floor(durationMs / 1000);
     const minutes = Math.floor(totalSeconds / 60);
@@ -40,9 +49,9 @@ function formatStopwatch(durationMs: number): string {
 }
 
 export default function StudyPage() {
-    // the deck id from the address, like "cs-fundamentals" in /deck/cs-fundamentals
     const { deckId } = useParams<{ deckId: string }>();
     const [isAnswerShown, setIsAnswerShown] = useState(false);
+    const [decks, setDecks] = useState(sampleDecks);
     const [cards, setCards] = useState(sampleCards);
     const [sessionStartedAtMs, setSessionStartedAtMs] = useState<number | null>(null);
     const [currentTimeMs, setCurrentTimeMs] = useState(Date.now());
@@ -53,19 +62,20 @@ export default function StudyPage() {
         ),
     );
     const [sessionCardCount, setSessionCardCount] = useState(sessionQueue.length);
-    const [hasLoadedSavedCards, setHasLoadedSavedCards] = useState(false);
+    const [hasLoadedSavedData, setHasLoadedSavedData] = useState(false);
+    // cards you're still stuck on. a card leaves once you get it right
     const [missedCardIds, setMissedCardIds] = useState<string[]>([]);
-    // every card forgotten at least once this session. unlike missedCardIds, cards never leave this list
+    // every card you forgot at least once this session. nothing ever leaves
     const [forgottenCardIds, setForgottenCardIds] = useState<string[]>([]);
-    // when the last card was finished, so the timer stops on the done screen
     const [sessionFinishedAtMs, setSessionFinishedAtMs] = useState<number | null>(null);
 
-    // only this deck's cards. `cards` still has every deck so saving keeps them all
+    // `cards` keeps every deck so saving doesn't wipe the others
     const deckCards = cards.filter((card) => card.deckId === deckId && card.deletedAt === null);
 
+    const currentDeck = decks.find((deck) => deck.id === deckId);
     const currentCard = cards.find((card) => card.id === sessionQueue[0]);
 
-    // the session starts the first time an answer is revealed
+    // the timer starts on the first reveal, not when the page opens
     const revealAnswer = () => {
         if (sessionStartedAtMs === null) {
             setSessionStartedAtMs(Date.now());
@@ -73,11 +83,9 @@ export default function StudyPage() {
         setIsAnswerShown(true);
     };
 
-    // saves the rated card and moves on to the next one
     const handleRatingClick = (rating: Rating) => {
         if (!currentCard) return;
 
-        // keep track of cards forgotten this session, for the red part of the progress bar
         if (rating === "Again") {
             if (!missedCardIds.includes(currentCard.id)) {
                 setMissedCardIds([...missedCardIds, currentCard.id]);
@@ -101,41 +109,51 @@ export default function StudyPage() {
         setIsAnswerShown(false);
     };
 
-    // ticks once a second so the timer on screen keeps counting up
+    // tap anywhere below the header to flip the card
+    const handleStudyAreaClick = () => {
+        if (!isAnswerShown) {
+            revealAnswer();
+        }
+    };
+
     useEffect(() => {
         const tickIntervalId = setInterval(() => setCurrentTimeMs(Date.now()), 1000);
         return () => clearInterval(tickIntervalId);
     }, []);
 
-    // on page open: swap in saved progress, if there is any
     useEffect(() => {
+        // load decks before the early return below, or new users never get them
+        const savedDecks = loadSavedDecks();
+        if (savedDecks !== null) {
+            setDecks(savedDecks);
+        }
+
         const savedCards = loadSavedCards();
         if (savedCards === null) {
-            setHasLoadedSavedCards(true);
+            setHasLoadedSavedData(true);
             return;
         }
-        setCards(savedCards); // still ALL cards, so saving keeps every deck
+        setCards(savedCards);
 
-        const savedDeckCards = savedCards.filter((card) => card.deckId === deckId);
+        const savedDeckCards = savedCards.filter((card) => card.deckId === deckId && card.deletedAt === null);
         const savedSessionQueue = dueCardIdsInOrder(savedDeckCards, Date.now());
         setSessionQueue(savedSessionQueue);
         setSessionCardCount(savedSessionQueue.length);
-        setHasLoadedSavedCards(true);
+        setHasLoadedSavedData(true);
     }, []);
 
-    // after every change to the cards: save them, but only once loading is done
     useEffect(() => {
-        if (!hasLoadedSavedCards) return;
+        if (!hasLoadedSavedData) return;
         saveCards(cards);
-    }, [cards, hasLoadedSavedCards]);
+    }, [cards, hasLoadedSavedData]);
 
-    // keyboard shortcuts: Space reveals the answer, 1-3 rate the card
+    // Space shows the answer, 1-3 rate it
     useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
             if (!currentCard) return;
 
             if (event.code === "Space") {
-                event.preventDefault(); // stop Space from also clicking a focused button or scrolling
+                event.preventDefault(); // otherwise the page scrolls
                 if (!isAnswerShown) {
                     revealAnswer();
                 }
@@ -152,27 +170,24 @@ export default function StudyPage() {
         return () => window.removeEventListener("keydown", handleKeyDown);
     });
 
-    // show a blank page until saved progress is loaded, so the sample cards don't flash first
-    if (!hasLoadedSavedCards) {
-        return <main className="min-h-screen bg-gray-50" />;
+    // blank until saved data loads, so the sample cards don't flash first
+    if (!hasLoadedSavedData) {
+        return <main className="h-dvh bg-neutral-50" />;
     }
 
-    // once finished, count up to the finish time instead of now, so the timer stops
+    // stops counting once the session is over
     const elapsedStudyTimeMs =
         sessionStartedAtMs === null
             ? 0
             : Math.max(0, (sessionFinishedAtMs ?? currentTimeMs) - sessionStartedAtMs);
 
-    // how much of this deck you'd remember if you stopped studying now
     const deckMemoryPercent = memoryPercentForecast(deckCards, currentTimeMs);
 
-    // when the next card in this deck comes back. null if the deck has no cards
     const nextDueAtMs =
         deckCards.length > 0 ? Math.min(...deckCards.map((card) => card.dueAt)) : null;
 
-    // no card left to show: draw the summary instead of the study screen
     if (!currentCard) {
-        // nothing was due when the deck opened, so there was no session to finish
+        // if nothing was due when the deck opened, there was no session
         const hasStudiedThisSession = sessionCardCount > 0;
         const isDeckEmpty = deckCards.length === 0;
 
@@ -182,7 +197,6 @@ export default function StudyPage() {
                 ? "No cards yet"
                 : "Nothing due right now";
 
-        // each row of the summary: what it is on the left, the value on the right
         const summaryRows: { label: string; value: string; isWarning?: boolean }[] = [];
         if (hasStudiedThisSession) {
             summaryRows.push(
@@ -200,26 +214,24 @@ export default function StudyPage() {
         }
 
         return (
-            <main className="min-h-screen flex flex-col items-center bg-gray-50">
+            <main className="flex min-h-dvh flex-col items-center bg-neutral-50 text-neutral-900">
                 <div className="mt-6 w-full max-w-2xl px-4 sm:mt-[18vh]">
-                    <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-                        {/* header: small badge, like Mochi's "NEW CARD" */}
-                        <div className="border-b border-gray-100 px-6 py-3">
-                            <span className="inline-flex items-center gap-1 rounded-md bg-gray-100 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-gray-500">
+                    <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+                        <div className="border-b border-neutral-100 px-6 py-3">
+                            <span className="inline-flex items-center gap-1 rounded-md bg-neutral-100 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-neutral-500">
                                 {hasStudiedThisSession ? <Check className="h-3 w-3" /> : <Coffee className="h-3 w-3" />}
                                 {headerText}
                             </span>
                         </div>
 
-                        {/* summary rows: label on the left, value on the right */}
                         {summaryRows.length > 0 && (
-                            <dl className="divide-y divide-gray-100 px-6">
+                            <dl className="divide-y divide-neutral-100 px-6">
                                 {summaryRows.map((row) => (
                                     <div key={row.label} className="flex items-center justify-between py-3 text-sm">
-                                        <dt className="text-gray-500">{row.label}</dt>
+                                        <dt className="text-neutral-500">{row.label}</dt>
                                         <dd
                                             className={`font-medium tabular-nums ${
-                                                row.isWarning ? "text-red-500" : "text-gray-800"
+                                                row.isWarning ? "text-red-500" : "text-neutral-800"
                                             }`}
                                         >
                                             {row.value}
@@ -233,7 +245,7 @@ export default function StudyPage() {
                     <div className="mt-6 flex justify-center">
                         <Link
                             href={`/deck/${deckId}`}
-                            className="inline-flex items-center gap-1.5 rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-neutral-100 px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-200"
                         >
                             <ArrowLeft className="h-4 w-4" />
                             Back to deck
@@ -244,16 +256,13 @@ export default function StudyPage() {
         );
     }
 
-    // how far through today's cards: finished / total
     const finishedCardCount = sessionCardCount - sessionQueue.length;
-    // how much of the bar is red: cards forgotten this session / total
     const missedProgressPercent =
         sessionCardCount > 0 ? (missedCardIds.length / sessionCardCount) * 100 : 0;
-    // 5 finished cards / 20 total cards = 0.25 * 100 = 25%
     const sessionProgressPercent =
         sessionCardCount > 0 ? (finishedCardCount / sessionCardCount) * 100 : 0;
 
-    // text like "3 d": how long until the card comes back if this rating is picked
+    // "3d": when the card would come back if you picked this rating
     const timeUntilDueText = (rating: Rating) => {
         const currentTimeMs = Date.now();
         const cardIfRated = applyRating(currentCard, rating, currentTimeMs);
@@ -261,104 +270,132 @@ export default function StudyPage() {
     };
 
     return (
-        <main className="min-h-screen flex flex-col items-center bg-gray-50">
-            {/* session progress bar: gray = done, red = forgotten */}
-            <div className="flex h-2 w-full bg-gray-200">
-                <div
-                    className="h-full bg-gray-500 transition-all duration-300"
-                    style={{ width: `${sessionProgressPercent}%` }}
-                />
-                <div
-                    className="h-full bg-red-400 transition-all duration-300"
-                    style={{ width: `${missedProgressPercent}%` }}
-                />
-            </div>
+        <main className="flex h-dvh flex-col bg-neutral-50 text-neutral-900">
+            <header className="shrink-0 px-3 pt-3 sm:px-6 sm:pt-5">
+                <div className="mx-auto flex max-w-2xl items-center gap-3">
+                    <Link
+                        href={`/deck/${deckId}`}
+                        aria-label="Back to deck"
+                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-600 shadow-[0_1px_2px_rgba(0,0,0,0.05)] hover:bg-neutral-50"
+                    >
+                        <ChevronLeft className="h-5 w-5" />
+                    </Link>
 
-            {/* top bar: memory on the left, progress in the middle, timer on the right */}
-            <div className="grid w-full grid-cols-3 items-center px-6 py-4 text-sm text-gray-500">
-                {/* left: deck memory */}
-                <div
-                    className="flex items-center gap-1.5"
-                    title={`Average chance you'd remember each card in ${MEMORY_FORECAST_DAYS} days`}
-                >
-                    <Brain className="h-4 w-4" />
-                    <span className="font-medium tabular-nums text-gray-700">{deckMemoryPercent}%</span>
-                    <span>in {MEMORY_FORECAST_DAYS} days</span>
-                </div>
-
-                {/* middle: cards done this session, and cards forgotten */}
-                <div className="flex items-center justify-center gap-4 tabular-nums">
-                    <div className="flex items-center gap-1.5">
-                        <Inbox className="h-4 w-4" />
-                        <span className="font-medium text-gray-700">{finishedCardCount}</span>
-                        <span className="text-gray-400">/ {sessionCardCount}</span>
-                    </div>
-                    {missedCardIds.length > 0 && (
-                        <div className="flex items-center gap-1 text-red-500">
-                            <X className="h-4 w-4" />
-                            <span className="font-medium">{missedCardIds.length}</span>
+                    <div className="min-w-0 flex-1">
+                        <div className="flex items-baseline justify-between gap-2">
+                            <p className="truncate text-sm font-medium text-neutral-800">Studying {currentDeck?.name}</p>
+                            <p className="shrink-0 text-xs tabular-nums text-neutral-400">
+                                <span className="font-medium text-neutral-700">{finishedCardCount}</span> of{" "}
+                                {sessionCardCount}
+                            </p>
                         </div>
-                    )}
-                </div>
+                        {/* dark for done, red for cards you're still stuck on */}
+                        <div className="mt-1.5 flex h-1.5 overflow-hidden rounded-full bg-neutral-200/80">
+                            <div
+                                className="h-full bg-neutral-800 transition-all duration-300"
+                                style={{ width: `${sessionProgressPercent}%` }}
+                            />
+                            <div
+                                className="h-full bg-red-400 transition-all duration-300"
+                                style={{ width: `${missedProgressPercent}%` }}
+                            />
+                        </div>
+                    </div>
 
-                {/* right: study timer */}
-                <div className="flex items-center justify-end gap-1.5 tabular-nums">
-                    <Clock className="h-4 w-4" />
-                    <span className="font-medium text-gray-700">{formatStopwatch(elapsedStudyTimeMs)}</span>
-                </div>
-            </div>
-
-            {/* card area: close to the top on phones, lower on bigger screens */}
-            <div className="mt-6 w-full max-w-2xl px-4 sm:mt-[18vh]">
-                <div className="overflow-hidden rounded-2xl bg-white shadow-md">
-                    <button onClick={revealAnswer} className="w-full p-6 text-left text-lg sm:p-10">
-                        <p>{currentCard.front}</p>
-                        {isAnswerShown && (
+                    <div className="flex h-10 shrink-0 items-center rounded-full border border-neutral-200 bg-white px-1 text-sm tabular-nums shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
+                        {missedCardIds.length > 0 && (
                             <>
-                                <p className="mt-6 border-t border-gray-200 pt-6">{currentCard.back}</p>
-                                <p className="mt-4 text-sm text-gray-400">
-                                    {`${currentCard.reviewCount} ${currentCard.reviewCount === 1 ? "review" : "reviews"}`}
-                                </p>
-                                {currentCard.forgetCount >= PROBLEM_CARD_FORGET_LIMIT && (
-                                    <p className="mt-2 text-sm text-amber-600">
-                                        {`You've forgotten this ${currentCard.forgetCount} times. Try rewriting it.`}
-                                    </p>
-                                )}
+                                <span className="flex items-center gap-1 px-2.5 font-medium text-red-500">
+                                    <X className="h-3.5 w-3.5" strokeWidth={2.5} />
+                                    {missedCardIds.length}
+                                </span>
+                                <span className="h-4 w-px bg-neutral-200" />
                             </>
                         )}
-                    </button>
-
-                    {isAnswerShown && (
-                        <div className="grid grid-cols-3 divide-x-3 divide-gray-200 border-t-3 border-gray-200 bg-gray-50">
-                            {BUTTON_RATINGS.map((rating) => (
-                                <button
-                                    key={rating}
-                                    onClick={() => handleRatingClick(rating)}
-                                    className="cursor-pointer py-3 text-sm hover:bg-gray-100"
-                                >
-                                    <span className="block font-medium">{BUTTON_LABEL_FOR_RATING[rating]}</span>
-                                    <span className="block text-xs text-gray-400">{timeUntilDueText(rating)}</span>
-                                </button>
-                            ))}
-                        </div>
-                    )}
+                        <span className="flex items-center gap-1.5 px-2.5 text-neutral-500">
+                            <Clock className="h-3.5 w-3.5" />
+                            {formatStopwatch(elapsedStudyTimeMs)}
+                        </span>
+                    </div>
                 </div>
+            </header>
 
-                {!isAnswerShown && (
-                    <p className="mx-auto mt-6 hidden w-fit rounded-full bg-gray-100 px-5 py-2 text-sm text-gray-400 pointer-fine:block">
-                        Press{" "}
-                        <kbd className="mx-1 rounded-md border border-gray-300 bg-white px-2 py-0.5 text-xs text-gray-600 shadow-sm">
-                            SPACE
-                        </kbd>{" "}
-                        to reveal the answer
-                    </p>
-                )}
 
-                {!isAnswerShown && (
-                    <p className="mx-auto mt-6 hidden w-fit gap-2 rounded-full bg-gray-100 px-5 py-2 text-sm text-gray-400 pointer-coarse:flex">
-                        <Pointer className="h-4 w-4" /> Tap card to reveal answer
-                    </p>
-                )}
+
+
+            <div
+                onClick={handleStudyAreaClick}
+                className={`flex min-h-0 flex-1 flex-col overflow-y-auto ${isAnswerShown ? "" : "cursor-pointer"}`}
+            >
+                <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-3 pb-4 pt-5 sm:px-6 sm:pt-[10vh]">
+                    <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+                        <div className="px-6 py-8 sm:px-10 sm:py-12">
+                            <p className="whitespace-pre-wrap text-[20px] font-medium leading-snug tracking-tight sm:text-xl">
+                                {currentCard.front}
+                            </p>
+
+                            {isAnswerShown && (
+                                <>
+                                    <div className="my-7 border-t-2 border-dashed border-neutral-200" />
+                                    <p className="whitespace-pre-wrap text-lg leading-relaxed text-neutral-700">
+                                        {currentCard.back}
+                                    </p>
+
+                                </>
+                            )}
+                        </div>
+
+                        {/* button ratings */}
+                        {isAnswerShown && (
+                            <div className="grid grid-cols-3 divide-x-[3px] divide-neutral-200 border-t-[3px] border-neutral-200 bg-neutral-50">
+                                {BUTTON_RATINGS.map((rating) => (
+                                    <button
+                                        key={rating}
+                                        onClick={() => handleRatingClick(rating)}
+                                        className="flex h-16 flex-col items-center justify-center gap-0.5 hover:bg-neutral-200/60"
+                                    >
+                                        <span
+                                            className={`text-[15px] font-medium ${"text-neutral-800"}`}
+                                        >
+                                            {BUTTON_LABEL_FOR_RATING[rating]}
+                                        </span>
+                                        <span className="text-xs tabular-nums text-neutral-400">
+                                            {timeUntilDueText(rating)}
+                                        </span>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* computers: one pill that shows which keys do what */}
+                    <div className="mt-5 hidden justify-center pointer-fine:flex">
+                        <div className="flex items-center gap-4 rounded-full border border-neutral-200 bg-white px-4 py-2 text-xs text-neutral-500 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+                            {isAnswerShown ? (
+                                BUTTON_RATINGS.map((rating, index) => (
+                                    <span key={rating} className="flex items-center gap-1.5">
+                                        <kbd className={KEY_STYLE}>{index + 1}</kbd>
+                                        {BUTTON_LABEL_FOR_RATING[rating]}
+                                    </span>
+                                ))
+                            ) : (
+                                <span className="flex items-center gap-1.5">
+                                    <kbd className={KEY_STYLE}>Space</kbd>
+                                    Reveal
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                    {/* phones: tap anywhere hint */}
+                    {!isAnswerShown && (
+                        <p className="mx-auto mb-2 mt-6 hidden items-center gap-1.5 rounded-full bg-neutral-100 px-4 py-2 text-sm text-neutral-500 pointer-coarse:flex">
+                            <Hand className="h-4 w-4" />
+                            Tap anywhere to reveal the answer
+                        </p>
+                    )}
+                    <div className="flex-1" />
+
+                </div>
             </div>
         </main>
     );
