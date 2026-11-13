@@ -219,7 +219,7 @@ export default function DeckPage() {
             {/* left column: deck info, search, and the card list.
                 phones: hidden while a card is open, so the card gets the whole screen */}
             <section
-                className={`${openCard ? "hidden md:flex" : "flex"} w-full flex-col md:w-90 md:shrink-0 md:border-r md:border-neutral-200`}
+                className={`${openCard ? "hidden md:flex" : "flex"} w-full flex-col md:w-120 md:shrink-0 md:border-r md:border-neutral-200`}
             >
                 <div className="px-4 pt-3 md:pt-4">
                     <Link
@@ -344,7 +344,7 @@ export default function DeckPage() {
                         }`}
                     >
                         <Play className="h-4 w-4 fill-current" />
-                        {dueCardCount > 0 ? `Begin · ${dueCardCount} due` : "Nothing due"}
+                        {dueCardCount > 0 ? `Review · ${dueCardCount} due` : "Nothing due"}
                     </Link>
                 </div>
             </section>
@@ -378,11 +378,9 @@ export default function DeckPage() {
 
                         {/* front and back: click and type, it saves as you go */}
                         <div className="min-h-0 flex-1 overflow-y-auto">
-                            <div className="mx-auto w-full max-w-2xl px-5 pb-10 pt-6 md:px-10 md:pt-14">
+                            <div className="w-full max-w-2xl px-5 pb-10 pt-6 md:px-10 md:pt-14">
                                 <label className="block">
-                                    <span className="text-[11px] font-medium uppercase tracking-wider text-neutral-400">
-                                        Front
-                                    </span>
+
                                     <textarea
                                         ref={frontTextBoxRef}
                                         value={openCard.front}
@@ -399,9 +397,7 @@ export default function DeckPage() {
                                 <div className="my-8 border-t border-dashed border-neutral-200" />
 
                                 <label className="block">
-                                    <span className="text-[11px] font-medium uppercase tracking-wider text-neutral-400">
-                                        Back
-                                    </span>
+
                                     <textarea
                                         ref={backTextBoxRef}
                                         value={openCard.back}
@@ -417,7 +413,7 @@ export default function DeckPage() {
                         </div>
 
                         {/* footer: this card's stats */}
-                        <div className="mx-auto flex w-full max-w-2xl shrink-0 gap-6 border-t border-neutral-100 px-5 py-3 text-xs text-neutral-400 md:px-10">
+                        <div className="flex w-full max-w-2xl shrink-0 gap-6 border-t border-neutral-100 px-5 py-3 text-xs text-neutral-400 md:px-10">
                             <span>Reviewed {openCard.reviewCount}×</span>
                             <span>{describeCardStatus(openCard, currentTimeMs)}</span>
                             {openCardRecallPercent !== null && <span>Recall {openCardRecallPercent}%</span>}
