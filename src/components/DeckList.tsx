@@ -1,39 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { SubmitEvent } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Brain, Folder, Plus, Trash2 } from "lucide-react";
-import { sampleCards, sampleDecks } from "@/data/sampleCards";
-import { loadSavedCards, saveCards } from "@/data/cardStorage";
-import { loadSavedDecks, saveDecks } from "@/data/deckStorage";
+import { useStudyData } from "@/data/StudyDataProvider";
 import { dueCardIdsInOrder } from "@/scheduler/sessionQueue";
 import { MEMORY_FORECAST_DAYS, memoryPercentForecast } from "@/scheduler/averageRecallChance";
 import type { Deck } from "@/scheduler/types";
 
 // compact in the sidebar, roomier on the home page
 export default function DeckList({ isInSidebar = false }: { isInSidebar?: boolean }) {
-    const [cards, setCards] = useState(sampleCards);
-    const [decks, setDecks] = useState(sampleDecks);
+    const { cards, decks, hasLoadedSavedData, updateCards, updateDecks } = useStudyData();
     const [newDeckName, setNewDeckName] = useState("");
-    const [hasLoadedSavedData, setHasLoadedSavedData] = useState(false);
 
     // on the home page there's no deck in the address, so this is undefined
     const { deckId: openDeckId } = useParams<{ deckId?: string }>();
-
-    useEffect(() => {
-        const savedCards = loadSavedCards();
-        if (savedCards !== null) {
-            setCards(savedCards);
-        }
-
-        const savedDecks = loadSavedDecks();
-        if (savedDecks !== null) {
-            setDecks(savedDecks);
-        }
-        setHasLoadedSavedData(true);
-    }, []);
 
     const createDeck = (event: SubmitEvent<HTMLFormElement>) => {
         event.preventDefault();
@@ -46,9 +29,7 @@ export default function DeckList({ isInSidebar = false }: { isInSidebar?: boolea
             deletedAt: null,
         };
 
-        const updatedDecks = [...decks, newDeck];
-        setDecks(updatedDecks);
-        saveDecks(updatedDecks);
+        updateDecks([...decks, newDeck]);
         setNewDeckName("");
     };
 
@@ -56,17 +37,8 @@ export default function DeckList({ isInSidebar = false }: { isInSidebar?: boolea
     const deleteDeck = (deckId: string) => {
         const deletedAtMs = Date.now();
 
-        const updatedDecks = decks.map((deck) =>
-            deck.id === deckId ? { ...deck, deletedAt: deletedAtMs } : deck,
-        );
-        setDecks(updatedDecks);
-        saveDecks(updatedDecks);
-
-        const updatedCards = cards.map((card) =>
-            card.deckId === deckId ? { ...card, deletedAt: deletedAtMs } : card,
-        );
-        setCards(updatedCards);
-        saveCards(updatedCards);
+        updateDecks(decks.map((deck) => (deck.id === deckId ? { ...deck, deletedAt: deletedAtMs } : deck)));
+        updateCards(cards.map((card) => (card.deckId === deckId ? { ...card, deletedAt: deletedAtMs } : card)));
     };
 
     const remainingDecks = decks.filter((deck) => deck.deletedAt === null);
@@ -82,7 +54,9 @@ export default function DeckList({ isInSidebar = false }: { isInSidebar?: boolea
 
     if (!hasLoadedSavedData) return null;
 
-    const rowTextClass = isInSidebar ? "gap-2 px-2.5 py-1.5 text-sm" : "gap-2 px-2.5 py-2.5 text-sm sm:gap-3 sm:px-4 sm:py-3 sm:text-lg";
+    const rowTextClass = isInSidebar
+        ? "gap-2 px-2.5 py-1.5 text-sm"
+        : "gap-2 px-2.5 py-2.5 text-sm sm:gap-3 sm:px-4 sm:py-3 sm:text-lg";
     const iconClass = isInSidebar ? "h-4 w-4" : "h-4 w-4 sm:h-5 sm:w-5";
     const smallTextClass = isInSidebar ? "text-xs" : "text-xs sm:text-sm";
 

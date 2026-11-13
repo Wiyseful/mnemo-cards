@@ -272,7 +272,7 @@ export default function StudyPage() {
     return (
         <main className="flex h-dvh flex-col bg-neutral-50 text-neutral-900">
             <header className="shrink-0 px-3 pt-3 sm:px-6 sm:pt-5">
-                <div className="mx-auto flex max-w-2xl items-center gap-3">
+                <div className="mx-auto flex max-w-5xl items-center gap-3">
                     <Link
                         href={`/deck/${deckId}`}
                         aria-label="Back to deck"
@@ -283,7 +283,7 @@ export default function StudyPage() {
 
                     <div className="min-w-0 flex-1">
                         <div className="flex items-baseline justify-between gap-2">
-                            <p className="truncate text-sm font-medium text-neutral-800">Studying {currentDeck?.name}</p>
+                            <p className="truncate text-sm font-medium text-neutral-800">{currentDeck?.name}</p>
                             <p className="shrink-0 text-xs tabular-nums text-neutral-400">
                                 <span className="font-medium text-neutral-700">{finishedCardCount}</span> of{" "}
                                 {sessionCardCount}
@@ -292,11 +292,11 @@ export default function StudyPage() {
                         {/* dark for done, red for cards you're still stuck on */}
                         <div className="mt-1.5 flex h-1.5 overflow-hidden rounded-full bg-neutral-200/80">
                             <div
-                                className="h-full bg-neutral-800 transition-all duration-300"
+                                className="h-full bg-neutral-800 transition-all duration-200"
                                 style={{ width: `${sessionProgressPercent}%` }}
                             />
                             <div
-                                className="h-full bg-red-400 transition-all duration-300"
+                                className="h-full bg-red-400 transition-all duration-200"
                                 style={{ width: `${missedProgressPercent}%` }}
                             />
                         </div>
