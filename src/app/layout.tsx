@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import {StudyDataProvider} from "@/data/StudyDataProvider";
 
-// one clean font for the whole app. Next.js downloads it once and serves it from your site
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata = {
@@ -13,7 +13,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     return (
         <html lang="en" className={inter.className}>
         <body className="antialiased" suppressHydrationWarning>
+        <StudyDataProvider>
         {children}
+        </StudyDataProvider>
         </body>
         </html>
     );

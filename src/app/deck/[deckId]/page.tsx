@@ -224,7 +224,7 @@ export default function DeckPage() {
                 <div className="px-4 pt-3 md:pt-4">
                     <Link
                         href="/"
-                        className="-ml-1.5 inline-flex h-8 items-center gap-0.5 rounded-md pl-0.5 pr-2 text-sm text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900"
+                        className="-ml-1.5 inline-flex h-8 items-center gap-0.5 rounded-md pl-0.5 pr-2 text-sm text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 md:hidden"
                     >
                         <ChevronLeft className="h-4 w-4" />
                         Decks

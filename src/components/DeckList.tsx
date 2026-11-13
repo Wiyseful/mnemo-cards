@@ -82,7 +82,6 @@ export default function DeckList({ isInSidebar = false }: { isInSidebar?: boolea
 
     if (!hasLoadedSavedData) return null;
 
-    // the two sizes, picked once here so the JSX below stays readable
     const rowTextClass = isInSidebar ? "gap-2 px-2.5 py-1.5 text-sm" : "gap-2 px-2.5 py-2.5 text-sm sm:gap-3 sm:px-4 sm:py-3 sm:text-lg";
     const iconClass = isInSidebar ? "h-4 w-4" : "h-4 w-4 sm:h-5 sm:w-5";
     const smallTextClass = isInSidebar ? "text-xs" : "text-xs sm:text-sm";
