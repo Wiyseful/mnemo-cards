@@ -70,12 +70,13 @@ function StudySession({ deckId }: { deckId: string }) {
 
     // the timer starts on the first reveal, not when the page opens
     const revealAnswer = () => {
-        if (sessionStartedAtMs === null) {
-            setSessionStartedAtMs(Date.now());
-        }
+
         setIsAnswerShown(true);
     };
 
+    if (sessionStartedAtMs === null) {
+        setSessionStartedAtMs(Date.now());
+    }
     const handleRatingClick = (rating: Rating) => {
         if (!currentCard) return;
 
