@@ -3,8 +3,13 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { AnimatePresence, MotionConfig, motion } from "motion/react";
+import type { Transition, Variants } from "motion/react";
 import { ArrowLeft, Check, ChevronLeft, Clock, Coffee, Hand, X } from "lucide-react";
+import CardWidthSwitcher from "@/components/CardWidthSwitcher";
+import type { CardWidth } from "@/components/CardWidthSwitcher";
 import { useStudyData } from "@/data/StudyDataProvider";
+import { loadCardWidth, saveCardWidth } from "@/data/settingsStorage";
 import { applyRating } from "@/scheduler/applyRating";
 import { formatDuration } from "@/scheduler/formatDuration";
 import { MEMORY_FORECAST_DAYS, memoryPercentForecast } from "@/scheduler/averageRecallChance";
@@ -26,14 +31,69 @@ const RATING_FOR_KEY: Record<string, Rating> = {
     "3": "Easy",
 };
 
-const KEY_STYLE =
-    "inline-flex h-[22px] min-w-[22px] items-center justify-center rounded-md border border-b-2 border-neutral-300 bg-white px-1.5 font-sans text-[11px] font-semibold text-neutral-600";
+// quick and snappy, for things you press
+const SPRING: Transition = { type: "spring", stiffness: 420, damping: 34, mass: 0.9 };
+// slower and softer, for things that grow
+const SOFT_SPRING: Transition = { type: "spring", stiffness: 240, damping: 30 };
 
+// where a rated card flies. same directions as the swipes will be
+const EXIT_MOTION: Record<Rating, { x: number; y: number; rotate: number }> = {
+    Again: { x: -160, y: 10, rotate: -6 },
+    Hard: { x: 0, y: -100, rotate: 0 },
+    Good: { x: 0, y: -100, rotate: 0 },
+    Easy: { x: 160, y: 10, rotate: 6 },
+};
+
+const CARD_VARIANTS: Variants = {
+    enter: { opacity: 0, y: 28, scale: 0.96 },
+    center: { opacity: 1, x: 0, y: 0, scale: 1, rotate: 0 },
+    exit: (lastRating: Rating | null) => ({
+        opacity: 0,
+        scale: 0.94,
+        ...(lastRating ? EXIT_MOTION[lastRating] : { y: -40 }),
+    }),
+};
+
+// frosted glass. the page shows through it as it scrolls underneath
+const GLASS =
+    "bg-white/70 backdrop-blur-xl backdrop-saturate-150 ring-1 ring-black/[0.06] shadow-[0_1px_2px_rgba(0,0,0,0.04),0_8px_24px_-12px_rgba(0,0,0,0.12)]";
+
+const KEY_STYLE =
+    "inline-flex h-[22px] min-w-[22px] items-center justify-center rounded-md bg-white px-1.5 font-sans text-[11px] font-semibold text-neutral-600 ring-1 ring-black/10 shadow-[0_1px_0_rgba(0,0,0,0.10)]";
+
+const MotionLink = motion.create(Link);
+
+const CARD_MAX_WIDTH_PX: Record<CardWidth, number> = {
+    narrow: 576,
+    normal: 768,
+    wide: 1024,
+};
+
+// 245000 ms -> "4:05"
 function formatStopwatch(durationMs: number): string {
     const totalSeconds = Math.floor(durationMs / 1000);
     const minutes = Math.floor(totalSeconds / 60);
     const seconds = totalSeconds % 60;
     return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+}
+
+// the old number slides up and out as the new one slides in
+function RollingNumber({ value }: { value: number }) {
+    return (
+        <span className="relative inline-flex overflow-hidden tabular-nums">
+            <AnimatePresence mode="popLayout" initial={false}>
+                <motion.span
+                    key={value}
+                    initial={{ y: "100%", opacity: 0 }}
+                    animate={{ y: "0%", opacity: 1 }}
+                    exit={{ y: "-100%", opacity: 0 }}
+                    transition={SPRING}
+                >
+                    {value}
+                </motion.span>
+            </AnimatePresence>
+        </span>
+    );
 }
 
 export default function StudyPage() {
@@ -45,7 +105,12 @@ export default function StudyPage() {
         return <main className="h-dvh bg-neutral-50" />;
     }
 
-    return <StudySession deckId={deckId} />;
+    return (
+        // turns animations down for people who ask for less motion in their system settings
+        <MotionConfig reducedMotion="user">
+            <StudySession deckId={deckId} />
+        </MotionConfig>
+    );
 }
 
 function StudySession({ deckId }: { deckId: string }) {
@@ -61,22 +126,28 @@ function StudySession({ deckId }: { deckId: string }) {
     const [sessionStartedAtMs, setSessionStartedAtMs] = useState<number | null>(null);
     const [sessionFinishedAtMs, setSessionFinishedAtMs] = useState<number | null>(null);
     const [currentTimeMs, setCurrentTimeMs] = useState(Date.now());
-    // cards user is still stuck on. a card leaves once you get it right
+    // cards still being missed. a card leaves once it's gotten right
     const [missedCardIds, setMissedCardIds] = useState<string[]>([]);
-    // every card user forgot at least once this session. nothing ever leaves
+    // every card forgotten at least once this session. nothing ever leaves
     const [forgottenCardIds, setForgottenCardIds] = useState<string[]>([]);
+    // decides which way the old card flies off
+    const [lastRating, setLastRating] = useState<Rating | null>(null);
+    // a forgotten card can come back as the very next card, so its id alone can't tell the two apart
+    const [ratingCount, setRatingCount] = useState(0);
+    // how wide the card and header are
+    // remembered from last time. safe to read here because this only ever runs in the browser
+    const [cardWidth, setCardWidth] = useState<CardWidth>(() => loadCardWidth());
 
     const currentCard = cards.find((card) => card.id === sessionQueue[0]);
 
     // the timer starts on the first reveal, not when the page opens
     const revealAnswer = () => {
-
+        if (sessionStartedAtMs === null) {
+            setSessionStartedAtMs(Date.now());
+        }
         setIsAnswerShown(true);
     };
 
-    if (sessionStartedAtMs === null) {
-        setSessionStartedAtMs(Date.now());
-    }
     const handleRatingClick = (rating: Rating) => {
         if (!currentCard) return;
 
@@ -100,7 +171,14 @@ function StudySession({ deckId }: { deckId: string }) {
             setSessionFinishedAtMs(Date.now());
         }
 
+        setLastRating(rating);
+        setRatingCount(ratingCount + 1);
         setIsAnswerShown(false);
+    };
+
+    const handleSelectWidth = (width: CardWidth) => {
+        setCardWidth(width);
+        saveCardWidth(width);
     };
 
     // tapping anywhere below the header flips the card
@@ -163,7 +241,7 @@ function StudySession({ deckId }: { deckId: string }) {
         const summaryRows: { label: string; value: string; isWarning?: boolean }[] = [];
         if (hasStudiedThisSession) {
             summaryRows.push(
-                { label: `Memory in ${MEMORY_FORECAST_DAYS} days`, value: `${deckMemoryPercent}%` },
+                { label: `Retention in ${MEMORY_FORECAST_DAYS} days`, value: `${deckMemoryPercent}%` },
                 { label: "Reviewed", value: `${sessionCardCount}` },
                 { label: "Forgotten", value: `${forgottenCardIds.length}`, isWarning: forgottenCardIds.length > 0 },
                 { label: "Time studied", value: formatStopwatch(elapsedStudyTimeMs) },
@@ -177,44 +255,63 @@ function StudySession({ deckId }: { deckId: string }) {
         }
 
         return (
-            <main className="flex min-h-dvh flex-col items-center bg-neutral-50 text-neutral-900">
-                <div className="mt-6 w-full max-w-2xl px-4 sm:mt-[18vh]">
-                    <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
-                        <div className="border-b border-neutral-100 px-6 py-3">
-                            <span className="inline-flex items-center gap-1 rounded-md bg-neutral-100 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-neutral-500">
+            <main className="flex min-h-dvh flex-col items-center bg-neutral-50 text-neutral-900 antialiased">
+                <motion.div
+                    initial={{ opacity: 0, y: 24, scale: 0.97 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    transition={SOFT_SPRING}
+                    className="mt-6 w-full max-w-xl px-4 sm:mt-[16vh]"
+                >
+                    <div className="overflow-hidden rounded-[22px] bg-white ring-1 ring-black/[0.06] shadow-[0_1px_2px_rgba(0,0,0,0.04),0_16px_40px_-16px_rgba(0,0,0,0.14)]">
+                        <div className="px-6 pb-2 pt-6">
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-black/[0.05] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
                                 {hasStudiedThisSession ? <Check className="h-3 w-3" /> : <Coffee className="h-3 w-3" />}
                                 {headerText}
                             </span>
                         </div>
 
                         {summaryRows.length > 0 && (
-                            <dl className="divide-y divide-neutral-100 px-6">
+                            // each row slides in a beat after the one above it
+                            <motion.dl
+                                initial="hidden"
+                                animate="shown"
+                                variants={{ shown: { transition: { staggerChildren: 0.06, delayChildren: 0.15 } } }}
+                                className="divide-y divide-black/[0.05] px-6 pb-2"
+                            >
                                 {summaryRows.map((row) => (
-                                    <div key={row.label} className="flex items-center justify-between py-3 text-sm">
+                                    <motion.div
+                                        key={row.label}
+                                        variants={{ hidden: { opacity: 0, y: 8 }, shown: { opacity: 1, y: 0 } }}
+                                        transition={SPRING}
+                                        className="flex items-center justify-between py-3.5 text-[15px]"
+                                    >
                                         <dt className="text-neutral-500">{row.label}</dt>
                                         <dd
-                                            className={`font-medium tabular-nums ${
-                                                row.isWarning ? "text-red-500" : "text-neutral-800"
+                                            className={`font-semibold tabular-nums tracking-tight ${
+                                                row.isWarning ? "text-red-500" : "text-neutral-900"
                                             }`}
                                         >
                                             {row.value}
                                         </dd>
-                                    </div>
+                                    </motion.div>
                                 ))}
-                            </dl>
+                            </motion.dl>
                         )}
                     </div>
 
                     <div className="mt-6 flex justify-center">
-                        <Link
+                        <MotionLink
                             href={`/deck/${deckId}`}
-                            className="inline-flex items-center gap-1.5 rounded-lg bg-neutral-100 px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-200"
+                            whileHover={{ y: -1 }}
+                            whileTap={{ scale: 0.95 }}
+                            transition={SPRING}
+                            className={`relative inline-flex h-11 items-center gap-1.5 overflow-hidden rounded-full px-5 text-sm font-semibold text-neutral-800 ${GLASS}`}
                         >
-                            <ArrowLeft className="h-4 w-4" />
-                            Back to deck
-                        </Link>
+                            <ArrowLeft className="relative h-4 w-4" />
+                            <span className="relative">Back to deck</span>
+                        </MotionLink>
                     </div>
-                </div>
+                </motion.div>
             </main>
         );
     }
@@ -233,124 +330,218 @@ function StudySession({ deckId }: { deckId: string }) {
     };
 
     return (
-        <main className="flex h-dvh flex-col bg-neutral-50 text-neutral-900">
-            <header className="shrink-0 px-3 pt-3 sm:px-6 sm:pt-5">
-                <div className="mx-auto flex max-w-2xl items-center gap-3">
-                    <Link
+        <main className="relative flex h-dvh flex-col overflow-hidden bg-neutral-50 text-neutral-900 antialiased">
+            {/* floats on top, so the card shows through the glass when it scrolls under */}
+            <header className="pointer-events-none absolute inset-x-0 top-0 z-20 px-3 pt-3 sm:px-6 sm:pt-5">
+                <motion.div
+                    initial={{ opacity: 0, y: -12 }}
+                    animate={{ opacity: 1, y: 0, maxWidth: CARD_MAX_WIDTH_PX[cardWidth] }}
+                    transition={SOFT_SPRING}
+                    className={`pointer-events-auto mx-auto flex items-center gap-2 rounded-full p-1.5 pr-3 ${GLASS}`}
+                >
+                    <MotionLink
                         href={`/deck/${deckId}`}
                         aria-label="Back to deck"
-                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-600 shadow-[0_1px_2px_rgba(0,0,0,0.05)] hover:bg-neutral-50"
+                        whileTap={{ scale: 0.88 }}
+                        transition={SPRING}
+                        className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full text-neutral-700"
                     >
-                        <ChevronLeft className="h-5 w-5" />
-                    </Link>
+                        <ChevronLeft className="relative h-5 w-5" />
+                    </MotionLink>
 
-                    <div className="min-w-0 flex-1">
+                    <div className="min-w-0 flex-1 px-1">
                         <div className="flex items-baseline justify-between gap-2">
-                            <p className="truncate text-sm font-medium text-neutral-800">Studying {currentDeck?.name}</p>
-                            <p className="shrink-0 text-xs tabular-nums text-neutral-400">
-                                <span className="font-medium text-neutral-700">{finishedCardCount}</span> of{" "}
-                                {sessionCardCount}
+                            <p className="truncate text-sm font-semibold tracking-tight text-neutral-800">
+                                {currentDeck?.name}
+                            </p>
+                            <p className="flex shrink-0 items-baseline gap-1 text-xs text-neutral-500">
+                                <span className="font-semibold text-neutral-800">
+                                    <RollingNumber value={finishedCardCount} />
+                                </span>
+                                of <span className="tabular-nums">{sessionCardCount}</span>
                             </p>
                         </div>
-                        {/* dark for done, red for cards you're still stuck on */}
-                        <div className="mt-1.5 flex h-1.5 overflow-hidden rounded-full bg-neutral-200/80">
-                            <div
-                                className="h-full bg-neutral-800 transition-all duration-300"
-                                style={{ width: `${sessionProgressPercent}%` }}
+                        <div className="mt-1.5 flex h-1.5 overflow-hidden rounded-full bg-black/[0.07]">
+                            <motion.div
+                                initial={false}
+                                animate={{ width: `${sessionProgressPercent}%` }}
+                                transition={SOFT_SPRING}
+                                className="h-full rounded-full bg-neutral-900"
                             />
-                            <div
-                                className="h-full bg-red-400 transition-all duration-300"
-                                style={{ width: `${missedProgressPercent}%` }}
+                            <motion.div
+                                initial={false}
+                                animate={{ width: `${missedProgressPercent}%` }}
+                                transition={SOFT_SPRING}
+                                className="h-full rounded-r-full bg-red-400"
                             />
                         </div>
                     </div>
 
-                    <div className="flex h-10 shrink-0 items-center rounded-full border border-neutral-200 bg-white px-1 text-sm tabular-nums shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
-                        {missedCardIds.length > 0 && (
-                            <>
-                                <span className="flex items-center gap-1 px-2.5 font-medium text-red-500">
-                                    <X className="h-3.5 w-3.5" strokeWidth={2.5} />
-                                    {missedCardIds.length}
-                                </span>
-                                <span className="h-4 w-px bg-neutral-200" />
-                            </>
-                        )}
-                        <span className="flex items-center gap-1.5 px-2.5 text-neutral-500">
-                            <Clock className="h-3.5 w-3.5" />
-                            {formatStopwatch(elapsedStudyTimeMs)}
-                        </span>
+                    {/* phones don't get this. the card is already full width there */}
+                    <div className="hidden md:block">
+                        <CardWidthSwitcher selectedWidth={cardWidth} onSelectWidth={handleSelectWidth} />
                     </div>
-                </div>
+
+                    <AnimatePresence initial={false}>
+                        {missedCardIds.length > 0 && (
+                            <motion.span
+                                initial={{ opacity: 0, scale: 0.5, width: 0 }}
+                                animate={{ opacity: 1, scale: 1, width: "auto" }}
+                                exit={{ opacity: 0, scale: 0.5, width: 0 }}
+                                transition={SPRING}
+                                className="flex h-7 shrink-0 items-center gap-1 overflow-hidden rounded-full bg-red-500/10 px-2.5 text-sm font-semibold text-red-600"
+                            >
+                                <X className="h-3.5 w-3.5 shrink-0" strokeWidth={2.75} />
+                                <RollingNumber value={missedCardIds.length} />
+                            </motion.span>
+                        )}
+                    </AnimatePresence>
+
+                    <span className="flex shrink-0 items-center gap-1.5 pl-1 text-sm tabular-nums text-neutral-600">
+                        <Clock className="h-3.5 w-3.5" />
+                        {formatStopwatch(elapsedStudyTimeMs)}
+                    </span>
+                </motion.div>
             </header>
 
             <div
                 onClick={handleStudyAreaClick}
-                className={`flex min-h-0 flex-1 flex-col overflow-y-auto ${isAnswerShown ? "" : "cursor-pointer"}`}
+                className={`flex min-h-0 flex-1 flex-col overflow-y-auto pt-[72px] sm:pt-[88px] ${isAnswerShown ? "" : "cursor-pointer"}`}
             >
-                <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-3 pb-4 pt-5 sm:px-6 sm:pt-[10vh]">
-                    <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
-                        <div className="px-6 py-8 sm:px-10 sm:py-12">
-                            <p className="whitespace-pre-wrap text-[20px] font-medium leading-snug tracking-tight sm:text-xl">
-                                {currentCard.front}
-                            </p>
+                <motion.div
+                    initial={false}
+                    animate={{ maxWidth: CARD_MAX_WIDTH_PX[cardWidth] }}
+                    transition={SOFT_SPRING}
+                    className="mx-auto flex w-full flex-1 flex-col px-3 pb-6 pt-4 sm:px-6 sm:pt-[5vh]"
+                >
+                    {/* relative so the old card can fly off while the new one comes in */}
+                    <div className="relative">
+                        <AnimatePresence mode="popLayout" custom={lastRating} initial={false}>
+                            <motion.div
+                                key={`${currentCard.id}:${ratingCount}`}
+                                custom={lastRating}
+                                variants={CARD_VARIANTS}
+                                initial="enter"
+                                animate="center"
+                                exit="exit"
+                                transition={SPRING}
+                                className="relative overflow-hidden rounded-[22px] bg-white ring-1 ring-black/[0.06] shadow-[0_1px_2px_rgba(0,0,0,0.04),0_16px_40px_-16px_rgba(0,0,0,0.14)]"
+                            >
 
-                            {isAnswerShown && (
-                                <>
-                                    <div className="my-7 border-t-2 border-dashed border-neutral-200" />
-                                    <p className="whitespace-pre-wrap text-lg leading-relaxed text-neutral-700">
-                                        {currentCard.back}
+                                <div className="relative px-7 py-9 sm:px-11 sm:py-12">
+                                    <p className="whitespace-pre-wrap text-[22px] font-semibold leading-snug tracking-tight sm:text-2xl">
+                                        {currentCard.front}
                                     </p>
-                                </>
-                            )}
-                        </div>
 
-                        {isAnswerShown && (
-                            <div className="grid grid-cols-3 divide-x-[3px] divide-neutral-200 border-t-[3px] border-neutral-200 bg-neutral-50">
-                                {BUTTON_RATINGS.map((rating) => (
-                                    <button
-                                        key={rating}
-                                        onClick={() => handleRatingClick(rating)}
-                                        className="flex h-16 flex-col items-center justify-center gap-0.5 hover:bg-neutral-200/60"
-                                    >
-                                        <span className="text-[15px] font-medium text-neutral-800">
-                                            {BUTTON_LABEL_FOR_RATING[rating]}
-                                        </span>
-                                        <span className="text-xs tabular-nums text-neutral-400">
-                                            {timeUntilDueText(rating)}
-                                        </span>
-                                    </button>
-                                ))}
-                            </div>
-                        )}
+                                    {/* the card grows to fit the answer instead of jumping */}
+                                    <AnimatePresence initial={false}>
+                                        {isAnswerShown && (
+                                            <motion.div
+                                                key="answer"
+                                                initial={{ height: 0, opacity: 0, filter: "blur(6px)" }}
+                                                animate={{ height: "auto", opacity: 1, filter: "blur(0px)" }}
+                                                exit={{ height: 0, opacity: 0 }}
+                                                transition={SOFT_SPRING}
+                                                className="overflow-hidden"
+                                            >
+                                                <div className="my-7 border-t-2 border-dashed border-black/[0.08]" />
+                                                <p className="whitespace-pre-wrap text-lg leading-relaxed text-neutral-600">
+                                                    {currentCard.back}
+                                                </p>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+                                </div>
+
+                                <AnimatePresence initial={false}>
+                                    {isAnswerShown && (
+                                        <motion.div
+                                            key="ratings"
+                                            initial={{ height: 0, opacity: 0 }}
+                                            animate={{ height: "auto", opacity: 1 }}
+                                            exit={{ height: 0, opacity: 0 }}
+                                            transition={SOFT_SPRING}
+                                            className="relative overflow-hidden"
+                                        >
+                                            <div className="grid grid-cols-3 divide-x-[3px] divide-black/[0.05] border-t-[3px] border-black/[0.05] bg-neutral-50">
+                                                {BUTTON_RATINGS.map((rating) => (
+                                                    <motion.button
+                                                        key={rating}
+                                                        whileTap={{ scale: 0.94 }}
+                                                        transition={SPRING}
+                                                        onClick={(event) => {
+                                                            event.stopPropagation();
+                                                            handleRatingClick(rating);
+                                                        }}
+                                                        className="relative flex h-16 flex-col items-center justify-center gap-0.5 overflow-hidden"
+                                                    >
+                                                        <span className="relative text-[15px] font-semibold tracking-tight text-neutral-800">
+                                                            {BUTTON_LABEL_FOR_RATING[rating]}
+                                                        </span>
+                                                        <span className="relative text-xs tabular-nums text-neutral-400">
+                                                            {timeUntilDueText(rating)}
+                                                        </span>
+                                                    </motion.button>
+                                                ))}
+                                            </div>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
+                            </motion.div>
+                        </AnimatePresence>
                     </div>
 
                     {/* computers: which keys do what */}
                     <div className="mt-5 hidden justify-center pointer-fine:flex">
-                        <div className="flex items-center gap-4 rounded-full border border-neutral-200 bg-white px-4 py-2 text-xs text-neutral-500 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-                            {isAnswerShown ? (
-                                BUTTON_RATINGS.map((rating, index) => (
-                                    <span key={rating} className="flex items-center gap-1.5">
-                                        <kbd className={KEY_STYLE}>{index + 1}</kbd>
-                                        {BUTTON_LABEL_FOR_RATING[rating]}
-                                    </span>
-                                ))
-                            ) : (
-                                <span className="flex items-center gap-1.5">
-                                    <kbd className={KEY_STYLE}>Space</kbd>
-                                    Reveal
-                                </span>
-                            )}
-                        </div>
+                        <motion.div
+                            layout
+                            transition={SPRING}
+                            className={`flex items-center rounded-full px-4 py-2 text-xs text-neutral-600 ${GLASS}`}
+                        >
+                            <AnimatePresence mode="wait" initial={false}>
+                                <motion.span
+                                    key={isAnswerShown ? "rate" : "reveal"}
+                                    initial={{ opacity: 0, y: 4, filter: "blur(4px)" }}
+                                    animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                                    exit={{ opacity: 0, y: -4, filter: "blur(4px)" }}
+                                    transition={{ duration: 0.18 }}
+                                    className="flex items-center gap-4"
+                                >
+                                    {isAnswerShown ? (
+                                        BUTTON_RATINGS.map((rating, index) => (
+                                            <span key={rating} className="flex items-center gap-1.5">
+                                                <kbd className={KEY_STYLE}>{index + 1}</kbd>
+                                                {BUTTON_LABEL_FOR_RATING[rating]}
+                                            </span>
+                                        ))
+                                    ) : (
+                                        <span className="flex items-center gap-1.5">
+                                            <kbd className={KEY_STYLE}>Space</kbd>
+                                            Reveal
+                                        </span>
+                                    )}
+                                </motion.span>
+                            </AnimatePresence>
+                        </motion.div>
                     </div>
 
-                    {!isAnswerShown && (
-                        <p className="mx-auto mb-2 mt-6 hidden items-center gap-1.5 rounded-full bg-neutral-100 px-4 py-2 text-sm text-neutral-500 pointer-coarse:flex">
-                            <Hand className="h-4 w-4" />
-                            Tap anywhere to reveal the answer
-                        </p>
-                    )}
+                    {/* phones */}
+                    <AnimatePresence>
+                        {!isAnswerShown && (
+                            <motion.p
+                                initial={{ opacity: 0, y: 6 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: 6 }}
+                                transition={SPRING}
+                                className={`mx-auto mb-2 mt-6 hidden items-center gap-1.5 rounded-full px-4 py-2 text-sm text-neutral-600 pointer-coarse:flex ${GLASS}`}
+                            >
+                                <Hand className="h-4 w-4" />
+                                Tap anywhere to reveal the answer
+                            </motion.p>
+                        )}
+                    </AnimatePresence>
                     <div className="flex-1" />
-                </div>
+                </motion.div>
             </div>
         </main>
     );

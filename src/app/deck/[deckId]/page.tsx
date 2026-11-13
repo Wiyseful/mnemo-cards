@@ -192,7 +192,7 @@ export default function DeckPage() {
                             </h1>
                             <p className="mt-1 text-sm text-neutral-500">
                                 <span className="font-medium text-neutral-900">{dueCardCount} due</span> ·{" "}
-                                {deckCards.length} {deckCards.length === 1 ? "card" : "cards"} · {deckMemoryPercent}% memory
+                                {deckCards.length} {deckCards.length === 1 ? "card" : "cards"} · {deckMemoryPercent}% retention
                             </p>
                         </div>
 
