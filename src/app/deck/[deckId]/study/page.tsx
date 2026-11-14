@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { AnimatePresence, MotionConfig, motion } from "motion/react";
-import type { Transition, Variants } from "motion/react";
+import type { PanInfo, Transition, Variants } from "motion/react";
 import { ArrowLeft, Check, ChevronLeft, Clock, Coffee, Hand, X } from "lucide-react";
 import CardWidthSwitcher from "@/components/CardWidthSwitcher";
 import type { CardWidth } from "@/components/CardWidthSwitcher";
@@ -38,19 +38,40 @@ const SOFT_SPRING: Transition = { type: "spring", stiffness: 240, damping: 30 };
 
 // where a rated card flies. same directions as the swipes will be
 const EXIT_MOTION: Record<Rating, { x: number; y: number; rotate: number }> = {
-    Again: { x: -160, y: 10, rotate: -6 },
-    Hard: { x: 0, y: -100, rotate: 0 },
-    Good: { x: 0, y: -100, rotate: 0 },
-    Easy: { x: 160, y: 10, rotate: 6 },
+    Again: { x: -1200, y: 120, rotate: -30 },
+    Hard: { x: 0, y: -1000, rotate: 0 },
+    Good: { x: 0, y: -1000, rotate: 0 },
+    Easy: { x: 1200, y: 120, rotate: 30 },
 };
+
+const SWIPE_DISTANCE_PX = 100;
+const SWIPE_SPEED = 500;
+
+function ratingForSwipe(info: PanInfo): Rating | null {
+    const { offset, velocity } = info;
+    const isMostlySideways = Math.abs(offset.x) > Math.abs(offset.y);
+
+    if (isMostlySideways) {
+        if (offset.x < -SWIPE_DISTANCE_PX || velocity.x < -SWIPE_SPEED) return "Again";
+        if (offset.x > SWIPE_DISTANCE_PX || velocity.x > SWIPE_SPEED) return "Easy";
+        return null;
+    }
+
+    if (offset.y < -SWIPE_DISTANCE_PX || velocity.y < -SWIPE_SPEED) return "Good";
+    return null;
+}
 
 const CARD_VARIANTS: Variants = {
     enter: { opacity: 0, y: 28, scale: 0.96 },
     center: { opacity: 1, x: 0, y: 0, scale: 1, rotate: 0 },
     exit: (lastRating: Rating | null) => ({
-        opacity: 0,
-        scale: 0.94,
         ...(lastRating ? EXIT_MOTION[lastRating] : { y: -40 }),
+        opacity: [1, 1, 0],
+        transition: {
+            duration: 0.3,
+            ease: [0.55, 0, 0.8, 0.2],
+            opacity: { duration: 0.3, times: [0, 0.85, 1] },
+        },
     }),
 };
 
@@ -330,7 +351,7 @@ function StudySession({ deckId }: { deckId: string }) {
     };
 
     return (
-        <main className="relative flex h-dvh flex-col overflow-hidden bg-background text-foreground antialiased">
+        <main className="relative flex h-dvh flex-col overflow-hidden overscroll-none bg-background text-foreground antialiased">
             {/* floats on top, so the card shows through the glass when it scrolls under */}
             <header className="pointer-events-none absolute inset-x-0 top-0 z-20 px-3 pt-3 sm:px-6 sm:pt-5">
                 <motion.div
@@ -366,13 +387,13 @@ function StudySession({ deckId }: { deckId: string }) {
                                 initial={false}
                                 animate={{ width: `${sessionProgressPercent}%` }}
                                 transition={SOFT_SPRING}
-                                className="h-full bg-accent"
+                                className="h-full rounded-full bg-accent"
                             />
                             <motion.div
                                 initial={false}
                                 animate={{ width: `${missedProgressPercent}%` }}
                                 transition={SOFT_SPRING}
-                                className="h-full bg-danger"
+                                className="h-full rounded-r-full bg-danger"
                             />
                         </div>
                     </div>
@@ -425,10 +446,19 @@ function StudySession({ deckId }: { deckId: string }) {
                                 animate="center"
                                 exit="exit"
                                 transition={SPRING}
-                                className="relative overflow-hidden rounded-[22px] bg-surface ring-1 ring-foreground/[0.06] shadow-[0_1px_2px_rgba(0,0,0,0.04),0_16px_40px_-16px_rgba(0,0,0,0.14)]"
+                                drag={isAnswerShown}
+                                dragSnapToOrigin
+                                whileDrag={{ scale: 1.02 }}
+                                onDragEnd={(event, info) => {
+                                    const swipedRating = ratingForSwipe(info);
+                                    if (swipedRating) {
+                                        handleRatingClick(swipedRating);
+                                    }
+                                }}
+                                className={`relative overflow-hidden rounded-[22px] ${isAnswerShown ? "touch-none" : ""} bg-surface ring-1 ring-foreground/[0.06] shadow-[0_1px_2px_rgba(0,0,0,0.04),0_16px_40px_-16px_rgba(0,0,0,0.14)]`}
                             >
 
-                                <div className="relative px-7 py-9 sm:px-11 sm:py-12">
+                                <div className="relative px-7 py-9 sm:px-8 sm:py-12">
                                     <p className="whitespace-pre-wrap text-[22px] font-semibold leading-snug tracking-tight sm:text-2xl">
                                         {currentCard.front}
                                     </p>
