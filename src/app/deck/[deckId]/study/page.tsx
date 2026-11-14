@@ -64,6 +64,10 @@ function formatStopwatch(durationMs: number): string {
     return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 }
 
+function retentionChangeText(percentBefore: number, percentAfter: number): string {
+    return percentAfter > percentBefore ? `${percentBefore}% → ${percentAfter}%` : `${percentAfter}%`;
+}
+
 function Stopwatch({ startedAtMs, finishedAtMs }: { startedAtMs: number | null; finishedAtMs: number | null }) {
     const [currentTimeMs, setCurrentTimeMs] = useState(() => Date.now());
     const isRunning = startedAtMs !== null && finishedAtMs === null;
@@ -76,25 +80,6 @@ function Stopwatch({ startedAtMs, finishedAtMs }: { startedAtMs: number | null; 
 
     const elapsedMs = startedAtMs === null ? 0 : Math.max(0, (finishedAtMs ?? currentTimeMs) - startedAtMs);
     return <>{formatStopwatch(elapsedMs)}</>;
-}
-
-// the old number slides up and out as the new one slides in
-function RollingNumber({ value }: { value: number }) {
-    return (
-        <span className="relative inline-flex overflow-hidden tabular-nums">
-            <AnimatePresence mode="popLayout" initial={false}>
-                <motion.span
-                    key={value}
-                    initial={{ y: "100%", opacity: 0 }}
-                    animate={{ y: "0%", opacity: 1 }}
-                    exit={{ y: "-100%", opacity: 0 }}
-                    transition={SPRING}
-                >
-                    {value}
-                </motion.span>
-            </AnimatePresence>
-        </span>
-    );
 }
 
 export default function StudyPage() {
@@ -125,6 +110,7 @@ function StudySession({ deckId }: { deckId: string }) {
     const [sessionQueue, setSessionQueue] = useState(() => dueCardIdsInOrder(deckCards, Date.now()));
     const [sessionCardCount] = useState(sessionQueue.length);
     const [pageOpenedAtMs] = useState(() => Date.now());
+    const [retentionPercentAtStart] = useState(() => memoryPercentForecast(deckCards, Date.now()));
     const [sessionStartedAtMs, setSessionStartedAtMs] = useState<number | null>(null);
     const [sessionFinishedAtMs, setSessionFinishedAtMs] = useState<number | null>(null);
     // cards still being missed. a card leaves once it's gotten right
@@ -168,7 +154,7 @@ function StudySession({ deckId }: { deckId: string }) {
         ]);
     };
 
-    const moveToNextCard = (updatedSessionQueue: string[], exit: CardExit) => {
+    const moveToNextCard = (updatedSessionQueue: string[], exit: CardExit | null) => {
         setSessionQueue(updatedSessionQueue);
         if (updatedSessionQueue.length === 0) {
             setSessionFinishedAtMs(Date.now());
@@ -207,7 +193,7 @@ function StudySession({ deckId }: { deckId: string }) {
         setMissedCardIds(missedCardIds.filter((missedId) => missedId !== currentCard.id));
         moveToNextCard(
             sessionQueue.filter((cardId) => cardId !== currentCard.id),
-            "Skip",
+            null,
         );
     };
 
@@ -221,7 +207,7 @@ function StudySession({ deckId }: { deckId: string }) {
         setMissedCardIds(missedCardIds.filter((missedId) => missedId !== currentCard.id));
         moveToNextCard(
             sessionQueue.filter((cardId) => cardId !== currentCard.id),
-            "Trash",
+            null,
         );
         setDeleteToastId(deletedAtMs);
     };
@@ -307,30 +293,21 @@ function StudySession({ deckId }: { deckId: string }) {
         return () => window.removeEventListener("keydown", handleKeyDown);
     });
 
-    const deleteToast = (
-        <AnimatePresence>
-            {deleteToastId !== null && (
-                <div className="pointer-events-none absolute inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+96px)] z-40 flex justify-center">
-                    <motion.div
-                        key={deleteToastId}
-                        initial={{ opacity: 0, y: 12 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: 12 }}
-                        transition={SPRING}
-                        className={`pointer-events-auto flex items-center gap-2 rounded-full py-2 pl-4 pr-2 text-sm text-secondary ${SOLID_PILL}`}
-                    >
-                        Card deleted
-                        <button
-                            type="button"
-                            onClick={handleUndo}
-                            className="rounded-full px-2.5 py-1 font-semibold text-foreground pointer-fine:hover:bg-foreground/[0.05]"
-                        >
-                            Undo
-                        </button>
-                    </motion.div>
-                </div>
-            )}
-        </AnimatePresence>
+    const deleteToast = deleteToastId !== null && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+96px)] z-40 flex justify-center">
+            <div
+                className={`pointer-events-auto flex items-center gap-2 rounded-full py-2 pl-4 pr-2 text-sm text-secondary ${SOLID_PILL}`}
+            >
+                Card deleted
+                <button
+                    type="button"
+                    onClick={handleUndo}
+                    className="rounded-full px-2.5 py-1 font-semibold text-foreground pointer-fine:hover:bg-foreground/[0.05]"
+                >
+                    Undo
+                </button>
+            </div>
+        </div>
     );
 
     if (!currentCard) {
@@ -355,7 +332,7 @@ function StudySession({ deckId }: { deckId: string }) {
             summaryRows.push(
                 {
                     label: `Retention in ${MEMORY_FORECAST_DAYS} days`,
-                    value: `${memoryPercentForecast(deckCards, summaryTimeMs)}%`,
+                    value: retentionChangeText(retentionPercentAtStart, memoryPercentForecast(deckCards, summaryTimeMs)),
                 },
                 { label: "Reviewed", value: `${sessionCardCount}` },
                 { label: "Forgotten", value: `${forgottenCardIds.length}`, isWarning: forgottenCardIds.length > 0 },
@@ -371,12 +348,7 @@ function StudySession({ deckId }: { deckId: string }) {
 
         return (
             <main className="relative flex min-h-dvh flex-col items-center bg-background text-foreground antialiased">
-                <motion.div
-                    initial={{ opacity: 0, y: 24, scale: 0.97 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    transition={SOFT_SPRING}
-                    className="mt-6 w-full max-w-xl px-4 sm:mt-[16vh]"
-                >
+                <div className="mt-6 w-full max-w-xl px-4 sm:mt-[16vh]">
                     <div className="overflow-hidden rounded-[22px] bg-surface ring-1 ring-foreground/[0.06] shadow-[0_1px_2px_rgba(0,0,0,0.04),0_16px_40px_-16px_rgba(0,0,0,0.14)]">
                         <div className="px-6 pb-2 pt-6">
                             <span className="inline-flex items-center gap-1.5 rounded-full bg-foreground/[0.05] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-muted">
@@ -386,20 +358,9 @@ function StudySession({ deckId }: { deckId: string }) {
                         </div>
 
                         {summaryRows.length > 0 && (
-                            // each row slides in a beat after the one above it
-                            <motion.dl
-                                initial="hidden"
-                                animate="shown"
-                                variants={{ shown: { transition: { staggerChildren: 0.06, delayChildren: 0.15 } } }}
-                                className="divide-y divide-foreground/[0.05] px-6 pb-2"
-                            >
+                            <dl className="divide-y divide-foreground/[0.05] px-6 pb-2">
                                 {summaryRows.map((row) => (
-                                    <motion.div
-                                        key={row.label}
-                                        variants={{ hidden: { opacity: 0, y: 8 }, shown: { opacity: 1, y: 0 } }}
-                                        transition={SPRING}
-                                        className="flex items-center justify-between py-3.5 text-[15px]"
-                                    >
+                                    <div key={row.label} className="flex items-center justify-between py-3.5 text-[15px]">
                                         <dt className="text-muted">{row.label}</dt>
                                         <dd
                                             className={`font-semibold tabular-nums tracking-tight ${
@@ -408,9 +369,9 @@ function StudySession({ deckId }: { deckId: string }) {
                                         >
                                             {row.value}
                                         </dd>
-                                    </motion.div>
+                                    </div>
                                 ))}
-                            </motion.dl>
+                            </dl>
                         )}
                     </div>
 
@@ -439,7 +400,7 @@ function StudySession({ deckId }: { deckId: string }) {
                             Back to deck
                         </MotionLink>
                     </div>
-                </motion.div>
+                </div>
 
                 {deleteToast}
             </main>
@@ -457,8 +418,8 @@ function StudySession({ deckId }: { deckId: string }) {
             {/* floats on top, so the card shows through the glass when it scrolls under */}
             <header className="pointer-events-none absolute inset-x-0 top-0 z-20 px-3 pt-3 sm:px-6 sm:pt-5">
                 <motion.div
-                    initial={{ opacity: 0, y: -12, maxWidth: CARD_MAX_WIDTH_PX[cardWidth] }}
-                    animate={{ opacity: 1, y: 0, maxWidth: CARD_MAX_WIDTH_PX[cardWidth] }}
+                    initial={false}
+                    animate={{ maxWidth: CARD_MAX_WIDTH_PX[cardWidth] }}
                     transition={SOFT_SPRING}
                     className={`pointer-events-auto mx-auto flex items-center gap-2 rounded-full p-1.5 pr-3 ${GLASS}`}
                 >
@@ -478,9 +439,7 @@ function StudySession({ deckId }: { deckId: string }) {
                                 {currentDeck?.name}
                             </p>
                             <p className="flex shrink-0 items-baseline gap-1 text-xs text-muted">
-                                <span className="font-semibold text-foreground">
-                                    <RollingNumber value={finishedCardCount} />
-                                </span>
+                                <span className="font-semibold tabular-nums text-foreground">{finishedCardCount}</span>
                                 of <span className="tabular-nums">{sessionCardCount}</span>
                             </p>
                         </div>
@@ -505,22 +464,14 @@ function StudySession({ deckId }: { deckId: string }) {
                         <CardWidthSwitcher selectedWidth={cardWidth} onSelectWidth={handleSelectWidth} />
                     </div>
 
-                    <AnimatePresence initial={false}>
-                        {missedCardIds.length > 0 && (
-                            <motion.span
-                                initial={{ opacity: 0, scale: 0.5, width: 0 }}
-                                animate={{ opacity: 1, scale: 1, width: "auto" }}
-                                exit={{ opacity: 0, scale: 0.5, width: 0 }}
-                                transition={SPRING}
-                                className="flex h-7 shrink-0 items-center gap-1 overflow-hidden rounded-full bg-danger/10 px-2.5 text-sm font-semibold text-danger"
-                            >
-                                <X className="h-3.5 w-3.5 shrink-0" strokeWidth={2.75} />
-                                <RollingNumber value={missedCardIds.length} />
-                            </motion.span>
-                        )}
-                    </AnimatePresence>
+                    {missedCardIds.length > 0 && (
+                        <span className="flex h-7 shrink-0 items-center gap-1 rounded-full bg-danger/10 px-2.5 text-sm font-semibold tabular-nums text-danger">
+                            <X className="h-3.5 w-3.5 shrink-0" strokeWidth={2.75} />
+                            {missedCardIds.length}
+                        </span>
+                    )}
 
-                    <span className="flex w-[52px] shrink-0 items-center gap-1.5 pl-1 text-sm tabular-nums text-secondary">
+                    <span className="flex min-w-[72px] shrink-0 items-center justify-end gap-1.5 pl-1 text-sm tabular-nums text-secondary">
                         <Clock className="h-3.5 w-3.5 shrink-0" />
                         <Stopwatch startedAtMs={sessionStartedAtMs} finishedAtMs={sessionFinishedAtMs} />
                     </span>
@@ -545,6 +496,7 @@ function StudySession({ deckId }: { deckId: string }) {
                                 key={`${currentCard.id}:${cardChangeCount}`}
                                 card={currentCard}
                                 isAnswerShown={isAnswerShown}
+                                isEnterAnimated={lastExit !== null}
                                 onRate={handleRatingClick}
                                 dragControls={dragControls}
                             />
@@ -597,15 +549,7 @@ function StudySession({ deckId }: { deckId: string }) {
                     <div className="flex-1" />
 
                     <div className="relative flex justify-center pt-6">
-                        <AnimatePresence>
-                            {isInfoOpen && (
-                                <CardInfoPanel
-                                    key={currentCard.id}
-                                    card={currentCard}
-                                    onClose={() => setIsInfoOpen(false)}
-                                />
-                            )}
-                        </AnimatePresence>
+                        {isInfoOpen && <CardInfoPanel card={currentCard} onClose={() => setIsInfoOpen(false)} />}
                         <StudyToolbar
                             canUndo={undoHistory.length > 0}
                             isInfoOpen={isInfoOpen}
@@ -621,16 +565,9 @@ function StudySession({ deckId }: { deckId: string }) {
 
             {deleteToast}
 
-            <AnimatePresence>
-                {isEditing && (
-                    <EditCardSheet
-                        key="edit-card"
-                        card={currentCard}
-                        onSave={handleSaveEdit}
-                        onClose={() => setIsEditing(false)}
-                    />
-                )}
-            </AnimatePresence>
+            {isEditing && (
+                <EditCardSheet card={currentCard} onSave={handleSaveEdit} onClose={() => setIsEditing(false)} />
+            )}
         </main>
     );
 }

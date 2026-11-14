@@ -25,3 +25,12 @@ export function averageRecallChance(cards: Card[], currentTimeMs: number): numbe
     }
     return cards.length > 0 ? total / cards.length : 0;
 }
+export const FORGET_WARNING_DAYS = 3;
+
+export function forgetPercentBy(cards: Card[], futureTimeMs: number): number | null {
+    const studiedCards = cards.filter((card) => card.stability !== null && card.lastReviewedAt !== null);
+    if (studiedCards.length === 0) {
+        return null;
+    }
+    return Math.round((1 - averageRecallChance(studiedCards, futureTimeMs)) * 100);
+}

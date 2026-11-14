@@ -2,8 +2,6 @@
 
 import { useEffect, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent, SubmitEvent } from "react";
-import { motion } from "motion/react";
-import { SPRING } from "@/components/springs";
 import type { Card } from "@/scheduler/types";
 
 type VisibleArea = { top: number; height: number };
@@ -53,20 +51,12 @@ export default function EditCardSheet({ card, onSave, onClose }: EditCardSheetPr
     };
 
     return (
-        <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
+        <div
             onClick={onClose}
             style={visibleArea ?? undefined}
             className="fixed inset-x-0 top-0 z-50 flex h-dvh items-end justify-center bg-foreground/20 sm:items-center sm:p-6"
         >
-            <motion.form
-                initial={{ y: 40, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                exit={{ y: 40, opacity: 0 }}
-                transition={SPRING}
+            <form
                 onClick={(event) => event.stopPropagation()}
                 onSubmit={handleSubmit}
                 onKeyDown={handleKeyDown}
@@ -98,7 +88,7 @@ export default function EditCardSheet({ card, onSave, onClose }: EditCardSheetPr
                     rows={2}
                     className="block max-h-[25vh] min-h-[3lh] w-full resize-none bg-transparent text-lg leading-relaxed text-secondary outline-none field-sizing-content placeholder:text-placeholder"
                 />
-            </motion.form>
-        </motion.div>
+            </form>
+        </div>
     );
 }

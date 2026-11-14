@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { averageRecallChance, memoryPercentForecast } from "./averageRecallChance";
+import { averageRecallChance, forgetPercentBy, memoryPercentForecast } from "./averageRecallChance";
 import { MS_PER_DAY } from "./time";
 import type { Card } from "./types";
 
@@ -74,5 +74,29 @@ describe("memoryPercentForecast", () => {
         const memoryPercent = memoryPercentForecast([cardReviewedJustNow], TEST_CURRENT_TIME_MS);
         const recallPercentRightNow = averageRecallChance([cardReviewedJustNow], TEST_CURRENT_TIME_MS) * 100;
         expect(memoryPercent).toBeLessThan(recallPercentRightNow);
+    });
+});
+describe("forgetPercentBy", () => {
+    it("returns null when nothing has been studied, so there's nothing to forget", () => {
+        expect(forgetPercentBy([unstudiedCard], TEST_CURRENT_TIME_MS)).toBeNull();
+    });
+
+    it("returns 0 for a card reviewed just now", () => {
+        expect(forgetPercentBy([cardReviewedJustNow], TEST_CURRENT_TIME_MS)).toBe(0);
+    });
+
+    it("returns 10 for a card reviewed S days ago", () => {
+        expect(forgetPercentBy([cardReviewedExactlyStabilityDaysAgo], TEST_CURRENT_TIME_MS)).toBe(10);
+    });
+
+    it("ignores unstudied cards instead of counting them as forgotten", () => {
+        const deck = [unstudiedCard, cardReviewedExactlyStabilityDaysAgo];
+        expect(forgetPercentBy(deck, TEST_CURRENT_TIME_MS)).toBe(10);
+    });
+
+    it("grows the further ahead you look", () => {
+        const soon = forgetPercentBy([cardReviewedJustNow], TEST_CURRENT_TIME_MS + 3 * MS_PER_DAY)!;
+        const later = forgetPercentBy([cardReviewedJustNow], TEST_CURRENT_TIME_MS + 30 * MS_PER_DAY)!;
+        expect(later).toBeGreaterThan(soon);
     });
 });
