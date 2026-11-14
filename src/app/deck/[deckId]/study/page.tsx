@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { PointerEvent as ReactPointerEvent } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { AnimatePresence, MotionConfig, motion } from "motion/react";
-import type { PanInfo, Transition, Variants } from "motion/react";
+import { AnimatePresence, MotionConfig, motion, useDragControls } from "motion/react";
 import { ArrowLeft, Check, ChevronLeft, Clock, Coffee, Hand, X } from "lucide-react";
 import CardWidthSwitcher from "@/components/CardWidthSwitcher";
+import StudyCard, { BUTTON_LABEL_FOR_RATING, BUTTON_RATINGS } from "@/components/StudyCard";
+import { SOFT_SPRING, SPRING } from "@/components/springs";
 import type { CardWidth } from "@/components/CardWidthSwitcher";
 import { useStudyData } from "@/data/StudyDataProvider";
 import { loadCardWidth, saveCardWidth } from "@/data/settingsStorage";
@@ -16,63 +18,10 @@ import { MEMORY_FORECAST_DAYS, memoryPercentForecast } from "@/scheduler/average
 import { queueAfterRating, dueCardIdsInOrder } from "@/scheduler/sessionQueue";
 import type { Rating } from "@/scheduler/types";
 
-// Hard isn't used. The order matches the swipe directions: left, up, right
-const BUTTON_RATINGS = ["Again", "Good", "Easy"] as const;
-
-const BUTTON_LABEL_FOR_RATING: Record<(typeof BUTTON_RATINGS)[number], string> = {
-    Again: "Forgot",
-    Good: "Recalled",
-    Easy: "Instant",
-};
-
 const RATING_FOR_KEY: Record<string, Rating> = {
     "1": "Again",
     "2": "Good",
     "3": "Easy",
-};
-
-// quick and snappy, for things you press
-const SPRING: Transition = { type: "spring", stiffness: 420, damping: 34, mass: 0.9 };
-// slower and softer, for things that grow
-const SOFT_SPRING: Transition = { type: "spring", stiffness: 240, damping: 30 };
-
-// where a rated card flies. same directions as the swipes will be
-const EXIT_MOTION: Record<Rating, { x: number; y: number; rotate: number }> = {
-    Again: { x: -1200, y: 120, rotate: -30 },
-    Hard: { x: 0, y: -1000, rotate: 0 },
-    Good: { x: 0, y: -1000, rotate: 0 },
-    Easy: { x: 1200, y: 120, rotate: 30 },
-};
-
-const SWIPE_DISTANCE_PX = 100;
-const SWIPE_SPEED = 500;
-
-function ratingForSwipe(info: PanInfo): Rating | null {
-    const { offset, velocity } = info;
-    const isMostlySideways = Math.abs(offset.x) > Math.abs(offset.y);
-
-    if (isMostlySideways) {
-        if (offset.x < -SWIPE_DISTANCE_PX || velocity.x < -SWIPE_SPEED) return "Again";
-        if (offset.x > SWIPE_DISTANCE_PX || velocity.x > SWIPE_SPEED) return "Easy";
-        return null;
-    }
-
-    if (offset.y < -SWIPE_DISTANCE_PX || velocity.y < -SWIPE_SPEED) return "Good";
-    return null;
-}
-
-const CARD_VARIANTS: Variants = {
-    enter: { opacity: 0, y: 28, scale: 0.96 },
-    center: { opacity: 1, x: 0, y: 0, scale: 1, rotate: 0 },
-    exit: (lastRating: Rating | null) => ({
-        ...(lastRating ? EXIT_MOTION[lastRating] : { y: -40 }),
-        opacity: [1, 1, 0],
-        transition: {
-            duration: 0.3,
-            ease: [0.55, 0, 0.8, 0.2],
-            opacity: { duration: 0.3, times: [0, 0.85, 1] },
-        },
-    }),
 };
 
 // frosted glass. the page shows through it as it scrolls underneath
@@ -159,6 +108,8 @@ function StudySession({ deckId }: { deckId: string }) {
     // remembered from last time. safe to read here because this only ever runs in the browser
     const [cardWidth, setCardWidth] = useState<CardWidth>(() => loadCardWidth());
 
+    const dragControls = useDragControls();
+
     const currentCard = cards.find((card) => card.id === sessionQueue[0]);
 
     // the timer starts on the first reveal, not when the page opens
@@ -200,6 +151,12 @@ function StudySession({ deckId }: { deckId: string }) {
     const handleSelectWidth = (width: CardWidth) => {
         setCardWidth(width);
         saveCardWidth(width);
+    };
+
+    const handleStudyAreaPointerDown = (event: ReactPointerEvent) => {
+        if (isAnswerShown) {
+            dragControls.start(event);
+        }
     };
 
     // tapping anywhere below the header flips the card
@@ -343,13 +300,6 @@ function StudySession({ deckId }: { deckId: string }) {
     const sessionProgressPercent =
         sessionCardCount > 0 ? (finishedCardCount / sessionCardCount) * 100 : 0;
 
-    // "3d": when the card would come back with this rating
-    const timeUntilDueText = (rating: Rating) => {
-        const currentTimeMs = Date.now();
-        const cardIfRated = applyRating(currentCard, rating, currentTimeMs);
-        return formatDuration(cardIfRated.dueAt - currentTimeMs);
-    };
-
     return (
         <main className="relative flex h-dvh flex-col overflow-hidden overscroll-none bg-background text-foreground antialiased">
             {/* floats on top, so the card shows through the glass when it scrolls under */}
@@ -387,13 +337,13 @@ function StudySession({ deckId }: { deckId: string }) {
                                 initial={false}
                                 animate={{ width: `${sessionProgressPercent}%` }}
                                 transition={SOFT_SPRING}
-                                className="h-full rounded-full bg-accent"
+                                className="h-full bg-accent"
                             />
                             <motion.div
                                 initial={false}
                                 animate={{ width: `${missedProgressPercent}%` }}
                                 transition={SOFT_SPRING}
-                                className="h-full rounded-r-full bg-danger"
+                                className="h-full bg-danger"
                             />
                         </div>
                     </div>
@@ -427,7 +377,8 @@ function StudySession({ deckId }: { deckId: string }) {
 
             <div
                 onClick={handleStudyAreaClick}
-                className={`flex min-h-0 flex-1 flex-col overflow-y-auto pt-[72px] sm:pt-[88px] ${isAnswerShown ? "" : "cursor-pointer"}`}
+                onPointerDown={handleStudyAreaPointerDown}
+                className={`flex min-h-0 flex-1 flex-col overflow-y-auto pt-[72px] sm:pt-[88px] ${isAnswerShown ? "touch-none" : "cursor-pointer"}`}
             >
                 <motion.div
                     initial={false}
@@ -438,86 +389,13 @@ function StudySession({ deckId }: { deckId: string }) {
                     {/* relative so the old card can fly off while the new one comes in */}
                     <div className="relative">
                         <AnimatePresence mode="popLayout" custom={lastRating} initial={false}>
-                            <motion.div
+                            <StudyCard
                                 key={`${currentCard.id}:${ratingCount}`}
-                                custom={lastRating}
-                                variants={CARD_VARIANTS}
-                                initial="enter"
-                                animate="center"
-                                exit="exit"
-                                transition={SPRING}
-                                drag={isAnswerShown}
-                                dragSnapToOrigin
-                                whileDrag={{ scale: 1.02 }}
-                                onDragEnd={(event, info) => {
-                                    const swipedRating = ratingForSwipe(info);
-                                    if (swipedRating) {
-                                        handleRatingClick(swipedRating);
-                                    }
-                                }}
-                                className={`relative overflow-hidden rounded-[22px] ${isAnswerShown ? "touch-none" : ""} bg-surface ring-1 ring-foreground/[0.06] shadow-[0_1px_2px_rgba(0,0,0,0.04),0_16px_40px_-16px_rgba(0,0,0,0.14)]`}
-                            >
-
-                                <div className="relative px-7 py-9 sm:px-8 sm:py-12">
-                                    <p className="whitespace-pre-wrap text-[22px] font-semibold leading-snug tracking-tight sm:text-2xl">
-                                        {currentCard.front}
-                                    </p>
-
-                                    {/* the card grows to fit the answer instead of jumping */}
-                                    <AnimatePresence initial={false}>
-                                        {isAnswerShown && (
-                                            <motion.div
-                                                key="answer"
-                                                initial={{ height: 0, opacity: 0, filter: "blur(6px)" }}
-                                                animate={{ height: "auto", opacity: 1, filter: "blur(0px)" }}
-                                                exit={{ height: 0, opacity: 0 }}
-                                                transition={SOFT_SPRING}
-                                                className="overflow-hidden"
-                                            >
-                                                <div className="my-7 border-t-2 border-dashed border-foreground/[0.08]" />
-                                                <p className="whitespace-pre-wrap text-lg leading-relaxed text-secondary">
-                                                    {currentCard.back}
-                                                </p>
-                                            </motion.div>
-                                        )}
-                                    </AnimatePresence>
-                                </div>
-
-                                <AnimatePresence initial={false}>
-                                    {isAnswerShown && (
-                                        <motion.div
-                                            key="ratings"
-                                            initial={{ height: 0, opacity: 0 }}
-                                            animate={{ height: "auto", opacity: 1 }}
-                                            exit={{ height: 0, opacity: 0 }}
-                                            transition={SOFT_SPRING}
-                                            className="relative overflow-hidden"
-                                        >
-                                            <div className="grid grid-cols-3 divide-x-[3px] divide-foreground/[0.05] border-t-[3px] border-foreground/[0.05] bg-background">
-                                                {BUTTON_RATINGS.map((rating) => (
-                                                    <motion.button
-                                                        key={rating}
-                                                        whileTap={{ scale: 0.94 }}
-                                                        transition={SPRING}
-                                                        onClick={(event) => {
-                                                            event.stopPropagation();
-                                                            handleRatingClick(rating);
-                                                        }}
-                                                        className="relative flex h-16 flex-col items-center justify-center gap-0.5 overflow-hidden"
-                                                    >
-                                                        <span className="relative text-[15px] font-semibold tracking-tight text-foreground">
-                                                            {BUTTON_LABEL_FOR_RATING[rating]}
-                                                        </span>
-                                                        <span className="relative text-xs tabular-nums text-faint">
-                                                            {timeUntilDueText(rating)}
-                                                        </span>
-                                                    </motion.button>
-                                                ))}
-                                            </div>
-                                        </motion.div>
-                                    )}
-                                </AnimatePresence>
-                            </motion.div>
+                                card={currentCard}
+                                isAnswerShown={isAnswerShown}
+                                onRate={handleRatingClick}
+                                dragControls={dragControls}
+                            />
                         </AnimatePresence>
                     </div>
 

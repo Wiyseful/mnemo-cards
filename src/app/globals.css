@@ -1,6 +1,5 @@
 @import "tailwindcss";
 
-/* Every color in the app comes from here. A new theme only has to change these. */
 @theme {
     --color-background: #fafafa;
     --color-surface: #ffffff;
@@ -25,7 +24,6 @@
 }
 
 @theme {
-    /* a spring: shoots slightly past the end, then settles */
     --ease-spring: linear(0, 0.009, 0.035 2.1%, 0.141 4.4%, 0.723 12.9%, 0.938 16.7%, 1.017 19.4%, 1.067, 1.099 24.3%, 1.108 26%, 1.103 27.9%, 1.085 30.2%, 1.008 39.1%, 0.981 43.5%, 0.974 47%, 0.982 55.1%, 1.002 66.1%, 1.004 75.2%, 1);
     --ease-smooth: cubic-bezier(0.22, 1, 0.36, 1);
 
@@ -57,7 +55,6 @@
     }
 }
 
-/* iPhones zoom in on text boxes under 16px */
 @media (pointer: coarse) {
     input,
     textarea,
@@ -66,7 +63,6 @@
     }
 }
 
-/* people who turn off motion in their system settings */
 @media (prefers-reduced-motion: reduce) {
     *,
     ::before,
