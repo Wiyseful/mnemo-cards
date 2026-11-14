@@ -366,13 +366,13 @@ function StudySession({ deckId }: { deckId: string }) {
                                 initial={false}
                                 animate={{ width: `${sessionProgressPercent}%` }}
                                 transition={SOFT_SPRING}
-                                className="h-full rounded-full bg-accent"
+                                className="h-full bg-accent"
                             />
                             <motion.div
                                 initial={false}
                                 animate={{ width: `${missedProgressPercent}%` }}
                                 transition={SOFT_SPRING}
-                                className="h-full rounded-r-full bg-danger"
+                                className="h-full bg-danger"
                             />
                         </div>
                     </div>
