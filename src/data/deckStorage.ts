@@ -15,6 +15,10 @@ export function loadSavedDecks(): Deck[] | null {
     const savedDecks = JSON.parse(savedDecksAsText) as Deck[];
 
     // decks saved before the trash existed have no deletedAt, so mark them as not deleted
-    const migratedDecks = savedDecks.map((deck) => ({ ...deck, deletedAt: deck.deletedAt ?? null }));
+    const migratedDecks = savedDecks.map((deck) => ({
+        ...deck,
+        deletedAt: deck.deletedAt ?? null,
+        examDate: deck.examDate ?? null,
+    }));
     return migratedDecks;
 }

@@ -8,13 +8,9 @@ import { Check, ChevronLeft, Play, Plus, Search, Trash2 } from "lucide-react";
 import { useStudyData } from "@/data/StudyDataProvider";
 import { createUnstudiedCard } from "@/data/createUnstudiedCard";
 import { dueCardIdsInOrder } from "@/scheduler/sessionQueue";
-import {
-    averageRecallChance,
-    FORGET_WARNING_DAYS,
-    forgetPercentBy,
-    memoryPercentForecast,
-} from "@/scheduler/averageRecallChance";
-import { MS_PER_DAY } from "@/scheduler/time";
+import { averageRecallChance } from "@/scheduler/averageRecallChance";
+import { daysUntilExam, examDateToTimeMs, forecastEndTimeMs, memoryForecast } from "@/scheduler/memoryForecast";
+import MemoryForecastChart from "@/components/MemoryForecastChart";
 import { formatDuration } from "@/scheduler/formatDuration";
 import type { Card } from "@/scheduler/types";
 
@@ -27,6 +23,12 @@ function describeCardStatus(card: Card, currentTimeMs: number): string {
 // new cards show "New" instead
 function isCardDue(card: Card, currentTimeMs: number): boolean {
     return card.reviewCount > 0 && card.dueAt <= currentTimeMs;
+}
+
+function toDateText(date: Date): string {
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${date.getFullYear()}-${month}-${day}`;
 }
 
 function isCardEmpty(card: Card): boolean {
@@ -44,7 +46,7 @@ function isPlainEnter(event: ReactKeyboardEvent): boolean {
 
 export default function DeckPage() {
     const { deckId } = useParams<{ deckId: string }>();
-    const { cards, decks, hasLoadedSavedData, updateCards } = useStudyData();
+    const { cards, decks, hasLoadedSavedData, updateCards, updateDecks } = useStudyData();
     const [openCardId, setOpenCardId] = useState<string | null>(null);
     const [searchText, setSearchText] = useState("");
 
@@ -52,15 +54,12 @@ export default function DeckPage() {
     const backTextBoxRef = useRef<HTMLTextAreaElement>(null);
     // only new cards should grab the cursor
     const shouldFocusFrontRef = useRef(false);
+    const examDateInputRef = useRef<HTMLInputElement>(null);
 
     const currentTimeMs = Date.now();
 
     const deckCards = cards.filter((card) => card.deckId === deckId && card.deletedAt === null);
     const dueCardCount = dueCardIdsInOrder(deckCards, currentTimeMs).length;
-    const deckMemoryPercent = memoryPercentForecast(deckCards, currentTimeMs);
-    const forgetWarningTimeMs = currentTimeMs + FORGET_WARNING_DAYS * MS_PER_DAY;
-    const forgetPercent = forgetPercentBy(deckCards, forgetWarningTimeMs);
-    const forgetWarningDay = new Date(forgetWarningTimeMs).toLocaleDateString("en-US", { weekday: "long" });
 
     const searchTextLowercase = searchText.trim().toLowerCase();
     const visibleCards = deckCards
@@ -174,6 +173,30 @@ export default function DeckPage() {
     }
 
     const studyLink = `/deck/${deckId}/study`;
+
+    const examDate = currentDeck.examDate;
+    const daysLeftUntilExam = examDate === null ? null : daysUntilExam(examDate, currentTimeMs);
+    const hasUpcomingExam = daysLeftUntilExam !== null && daysLeftUntilExam >= 0;
+    const forecastEndMs = forecastEndTimeMs(examDate, currentTimeMs);
+    const forecast = memoryForecast(deckCards, currentTimeMs, forecastEndMs);
+    const forecastEndDateText = new Date(forecastEndMs).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    const isForecastToExam = daysLeftUntilExam !== null && daysLeftUntilExam > 0;
+    const todayAsDateText = toDateText(new Date(currentTimeMs));
+
+    const examCountdownText =
+        daysLeftUntilExam === 0 ? "Exam today" : daysLeftUntilExam === 1 ? "Exam tomorrow" : `Exam in ${daysLeftUntilExam} days`;
+
+    const saveExamDate = (newExamDate: string | null) => {
+        updateDecks(decks.map((deck) => (deck.id === deckId ? { ...deck, examDate: newExamDate } : deck)));
+    };
+
+    const openExamDatePicker = () => {
+        try {
+            examDateInputRef.current?.showPicker();
+        } catch {
+            examDateInputRef.current?.focus();
+        }
+    };
     const openCardRecallPercent =
         openCard !== null && openCard.reviewCount > 0
             ? Math.round(averageRecallChance([openCard], currentTimeMs) * 100)
@@ -199,17 +222,56 @@ export default function DeckPage() {
                             <h1 className="truncate text-[28px] font-semibold tracking-tight md:text-xl">
                                 {currentDeck.name}
                             </h1>
-                            <p className="mt-1 text-sm text-muted">
-                                <span className="font-medium text-foreground">{dueCardCount} due</span> ·{" "}
-                                {deckCards.length} {deckCards.length === 1 ? "card" : "cards"} · {deckMemoryPercent}% retention
+                            <p className="mt-1 flex flex-wrap gap-x-3 text-sm text-muted">
+                                <span className="font-medium text-foreground">{dueCardCount} due</span>
+                                <span>
+                                    {deckCards.length} {deckCards.length === 1 ? "card" : "cards"}
+                                </span>
                             </p>
-                            {forgetPercent !== null && forgetPercent >= 5 && (
-                                <p className="mt-1 text-sm text-muted">
-                                    Without studying, you&apos;d forget{" "}
-                                    <span className="font-medium text-danger">{forgetPercent}%</span> of what you know
-                                    here by {forgetWarningDay}.
-                                </p>
-                            )}
+                            <div className="relative mt-2 flex items-center gap-3 text-sm">
+                                <input
+                                    ref={examDateInputRef}
+                                    type="date"
+                                    min={todayAsDateText}
+                                    value={hasUpcomingExam ? (examDate ?? "") : ""}
+                                    onChange={(event) => saveExamDate(event.target.value || null)}
+                                    aria-label="Exam date"
+                                    tabIndex={-1}
+                                    className="pointer-events-none absolute bottom-0 left-0 h-px w-px opacity-0"
+                                />
+                                {hasUpcomingExam ? (
+                                    <>
+                                        <button
+                                            type="button"
+                                            onClick={openExamDatePicker}
+                                            className="font-medium text-foreground hover:underline"
+                                        >
+                                            {examCountdownText}
+                                        </button>
+                                        <span className="text-faint">
+                                            {new Date(examDateToTimeMs(examDate!)).toLocaleDateString("en-US", {
+                                                month: "short",
+                                                day: "numeric",
+                                            })}
+                                        </span>
+                                        <button
+                                            type="button"
+                                            onClick={() => saveExamDate(null)}
+                                            className="text-muted hover:text-foreground"
+                                        >
+                                            Remove
+                                        </button>
+                                    </>
+                                ) : (
+                                    <button
+                                        type="button"
+                                        onClick={openExamDatePicker}
+                                        className="font-medium text-foreground underline decoration-control-hover underline-offset-4 hover:decoration-foreground"
+                                    >
+                                        Add exam date
+                                    </button>
+                                )}
+                            </div>
                         </div>
 
                         <Link
@@ -245,7 +307,17 @@ export default function DeckPage() {
                 </div>
 
                 {/* pt-1 keeps the first card's border from getting cut off */}
-                <ul className="mt-2 min-h-0 flex-1 space-y-2 overflow-y-auto px-3 pb-28 pt-1 md:pb-4">
+                <div className="mt-2 min-h-0 flex-1 overflow-y-auto pb-28 md:pb-4">
+                {forecast !== null && (
+                    <div className="px-4 pb-5 pt-2">
+                        <MemoryForecastChart
+                            forecast={forecast}
+                            endLabel={forecastEndDateText}
+                            axisEndLabel={isForecastToExam ? `Exam, ${forecastEndDateText}` : forecastEndDateText}
+                        />
+                    </div>
+                )}
+                <ul className="space-y-2 px-3 pt-1">
                     {visibleCards.map((card) => {
                         const isOpen = card.id === openCardId;
                         const isDue = isCardDue(card, currentTimeMs);
@@ -298,6 +370,7 @@ export default function DeckPage() {
                         <li className="px-3 py-6 text-center text-sm text-faint">No cards match your search.</li>
                     )}
                 </ul>
+                </div>
 
                 {/* phones get the Review button at the bottom */}
                 <div className="fixed inset-x-0 bottom-0 border-t border-border/70 bg-background/90 px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 backdrop-blur md:hidden">

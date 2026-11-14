@@ -4,7 +4,7 @@ import { createUnstudiedCard } from "@/data/createUnstudiedCard";
 export const SAMPLE_DECK_ID = "cs-fundamentals";
 
 export const sampleDecks: Deck[] = [
-    { id: SAMPLE_DECK_ID, name: "CS Fundamentals", parentDeckId: null, deletedAt: null },
+    { id: SAMPLE_DECK_ID, name: "CS Fundamentals", parentDeckId: null, deletedAt: null, examDate: null },
 ];
 
 const SAMPLE_FRONTS_AND_BACKS: [string, string][] = [

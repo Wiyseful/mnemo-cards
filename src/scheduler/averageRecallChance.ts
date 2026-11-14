@@ -3,12 +3,13 @@ import { MS_PER_DAY } from "./time";
 import { retrievability } from "@/engine";
 
 // how many days ahead the memory score looks
-export const MEMORY_FORECAST_DAYS = 7
+export const MEMORY_FORECAST_DAYS = 30
 
 // how much of these cards you'd remember in MEMORY_FORECAST_DAYS, as a whole percent like 73
 export function memoryPercentForecast(cards: Card[], currentTimeMs: number): number {
     const forecastTimeMs = currentTimeMs + MEMORY_FORECAST_DAYS * MS_PER_DAY;
-    return Math.round(averageRecallChance(cards, forecastTimeMs) * 100);
+    const studiedCards = cards.filter((card) => card.stability !== null && card.lastReviewedAt !== null);
+    return Math.round(averageRecallChance(studiedCards, forecastTimeMs) * 100);
 }
 
 // average chance of remembering each card at the given time. unstudied cards count as 0

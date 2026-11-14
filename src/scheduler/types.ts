@@ -31,4 +31,5 @@ export type Deck = {
     deletedAt: number | null;
     // null = top-level deck, string means child of another deck
     parentDeckId: string | null;
+    examDate: string | null;
 };

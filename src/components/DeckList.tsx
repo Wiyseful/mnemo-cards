@@ -26,6 +26,7 @@ export default function DeckList({ isInSidebar = false }: { isInSidebar?: boolea
             id: crypto.randomUUID(),
             name: newDeckName.trim(),
             parentDeckId: null,
+            examDate: null,
             deletedAt: null,
         };
 

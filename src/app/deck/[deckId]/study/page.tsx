@@ -18,7 +18,7 @@ import { useStudyData } from "@/data/StudyDataProvider";
 import { loadCardWidth, saveCardWidth } from "@/data/settingsStorage";
 import { applyRating } from "@/scheduler/applyRating";
 import { formatDuration } from "@/scheduler/formatDuration";
-import { MEMORY_FORECAST_DAYS, memoryPercentForecast } from "@/scheduler/averageRecallChance";
+import { daysUntilExam, forecastEndTimeMs, percentRememberedAt } from "@/scheduler/memoryForecast";
 import { queueAfterRating, dueCardIdsInOrder } from "@/scheduler/sessionQueue";
 import type { Card, Rating } from "@/scheduler/types";
 
@@ -64,10 +64,6 @@ function formatStopwatch(durationMs: number): string {
     return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 }
 
-function retentionChangeText(percentBefore: number, percentAfter: number): string {
-    return percentAfter > percentBefore ? `${percentBefore}% → ${percentAfter}%` : `${percentAfter}%`;
-}
-
 function Stopwatch({ startedAtMs, finishedAtMs }: { startedAtMs: number | null; finishedAtMs: number | null }) {
     const [currentTimeMs, setCurrentTimeMs] = useState(() => Date.now());
     const isRunning = startedAtMs !== null && finishedAtMs === null;
@@ -110,7 +106,12 @@ function StudySession({ deckId }: { deckId: string }) {
     const [sessionQueue, setSessionQueue] = useState(() => dueCardIdsInOrder(deckCards, Date.now()));
     const [sessionCardCount] = useState(sessionQueue.length);
     const [pageOpenedAtMs] = useState(() => Date.now());
-    const [retentionPercentAtStart] = useState(() => memoryPercentForecast(deckCards, Date.now()));
+    const [forecastEndMs] = useState(() => forecastEndTimeMs(currentDeck?.examDate ?? null, Date.now()));
+    const [isForecastToExam] = useState(() => {
+        const examDate = currentDeck?.examDate ?? null;
+        return examDate !== null && daysUntilExam(examDate, Date.now()) > 0;
+    });
+    const [rememberedPercentAtStart] = useState(() => percentRememberedAt(deckCards, forecastEndMs));
     const [sessionStartedAtMs, setSessionStartedAtMs] = useState<number | null>(null);
     const [sessionFinishedAtMs, setSessionFinishedAtMs] = useState<number | null>(null);
     // cards still being missed. a card leaves once it's gotten right
@@ -325,15 +326,26 @@ function StudySession({ deckId }: { deckId: string }) {
         const nextDueAtMs =
             deckCards.length > 0 ? Math.min(...deckCards.map((card) => card.dueAt)) : null;
 
-        const summaryRows: { label: string; value: string; isWarning?: boolean }[] = [];
+        const summaryRows: { label: string; note?: string; value: string; isWarning?: boolean }[] = [];
         if (hasStudiedThisSession) {
             const elapsedStudyTimeMs =
                 sessionStartedAtMs === null ? 0 : Math.max(0, summaryTimeMs - sessionStartedAtMs);
+            const rememberedPercentNow = percentRememberedAt(deckCards, forecastEndMs);
+            if (rememberedPercentNow !== null) {
+                const forecastDateText = new Date(forecastEndMs).toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                });
+                summaryRows.push({
+                    label: isForecastToExam ? `Remembered on exam day, ${forecastDateText}` : `Remembered on ${forecastDateText}`,
+                    note:
+                        rememberedPercentAtStart !== null && rememberedPercentNow > rememberedPercentAtStart
+                            ? `Up from ${rememberedPercentAtStart}%`
+                            : undefined,
+                    value: `${rememberedPercentNow}%`,
+                });
+            }
             summaryRows.push(
-                {
-                    label: `Retention in ${MEMORY_FORECAST_DAYS} days`,
-                    value: retentionChangeText(retentionPercentAtStart, memoryPercentForecast(deckCards, summaryTimeMs)),
-                },
                 { label: "Reviewed", value: `${sessionCardCount}` },
                 { label: "Forgotten", value: `${forgottenCardIds.length}`, isWarning: forgottenCardIds.length > 0 },
                 { label: "Time studied", value: formatStopwatch(elapsedStudyTimeMs) },
@@ -361,7 +373,10 @@ function StudySession({ deckId }: { deckId: string }) {
                             <dl className="divide-y divide-foreground/[0.05] px-6 pb-2">
                                 {summaryRows.map((row) => (
                                     <div key={row.label} className="flex items-center justify-between py-3.5 text-[15px]">
-                                        <dt className="text-muted">{row.label}</dt>
+                                        <dt className="text-muted">
+                                            {row.label}
+                                            {row.note && <span className="block text-[13px] text-faint">{row.note}</span>}
+                                        </dt>
                                         <dd
                                             className={`font-semibold tabular-nums tracking-tight ${
                                                 row.isWarning ? "text-danger" : "text-foreground"
