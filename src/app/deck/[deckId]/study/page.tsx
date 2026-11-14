@@ -56,10 +56,10 @@ const CARD_VARIANTS: Variants = {
 
 // frosted glass. the page shows through it as it scrolls underneath
 const GLASS =
-    "bg-white/70 backdrop-blur-xl backdrop-saturate-150 ring-1 ring-black/[0.06] shadow-[0_1px_2px_rgba(0,0,0,0.04),0_8px_24px_-12px_rgba(0,0,0,0.12)]";
+    "bg-surface/70 backdrop-blur-xl backdrop-saturate-150 ring-1 ring-foreground/[0.06] shadow-[0_1px_2px_rgba(0,0,0,0.04),0_8px_24px_-12px_rgba(0,0,0,0.12)]";
 
 const KEY_STYLE =
-    "inline-flex h-[22px] min-w-[22px] items-center justify-center rounded-md bg-white px-1.5 font-sans text-[11px] font-semibold text-neutral-600 ring-1 ring-black/10 shadow-[0_1px_0_rgba(0,0,0,0.10)]";
+    "inline-flex h-[22px] min-w-[22px] items-center justify-center rounded-md bg-surface px-1.5 font-sans text-[11px] font-semibold text-secondary ring-1 ring-foreground/10 shadow-[0_1px_0_rgba(0,0,0,0.10)]";
 
 const MotionLink = motion.create(Link);
 
@@ -102,7 +102,7 @@ export default function StudyPage() {
 
     // StudySession builds its queue from the cards, so it waits until they're loaded
     if (!hasLoadedSavedData) {
-        return <main className="h-dvh bg-neutral-50" />;
+        return <main className="h-dvh bg-background" />;
     }
 
     return (
@@ -255,16 +255,16 @@ function StudySession({ deckId }: { deckId: string }) {
         }
 
         return (
-            <main className="flex min-h-dvh flex-col items-center bg-neutral-50 text-neutral-900 antialiased">
+            <main className="flex min-h-dvh flex-col items-center bg-background text-foreground antialiased">
                 <motion.div
                     initial={{ opacity: 0, y: 24, scale: 0.97 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     transition={SOFT_SPRING}
                     className="mt-6 w-full max-w-xl px-4 sm:mt-[16vh]"
                 >
-                    <div className="overflow-hidden rounded-[22px] bg-white ring-1 ring-black/[0.06] shadow-[0_1px_2px_rgba(0,0,0,0.04),0_16px_40px_-16px_rgba(0,0,0,0.14)]">
+                    <div className="overflow-hidden rounded-[22px] bg-surface ring-1 ring-foreground/[0.06] shadow-[0_1px_2px_rgba(0,0,0,0.04),0_16px_40px_-16px_rgba(0,0,0,0.14)]">
                         <div className="px-6 pb-2 pt-6">
-                            <span className="inline-flex items-center gap-1.5 rounded-full bg-black/[0.05] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-foreground/[0.05] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-muted">
                                 {hasStudiedThisSession ? <Check className="h-3 w-3" /> : <Coffee className="h-3 w-3" />}
                                 {headerText}
                             </span>
@@ -276,7 +276,7 @@ function StudySession({ deckId }: { deckId: string }) {
                                 initial="hidden"
                                 animate="shown"
                                 variants={{ shown: { transition: { staggerChildren: 0.06, delayChildren: 0.15 } } }}
-                                className="divide-y divide-black/[0.05] px-6 pb-2"
+                                className="divide-y divide-foreground/[0.05] px-6 pb-2"
                             >
                                 {summaryRows.map((row) => (
                                     <motion.div
@@ -285,10 +285,10 @@ function StudySession({ deckId }: { deckId: string }) {
                                         transition={SPRING}
                                         className="flex items-center justify-between py-3.5 text-[15px]"
                                     >
-                                        <dt className="text-neutral-500">{row.label}</dt>
+                                        <dt className="text-muted">{row.label}</dt>
                                         <dd
                                             className={`font-semibold tabular-nums tracking-tight ${
-                                                row.isWarning ? "text-red-500" : "text-neutral-900"
+                                                row.isWarning ? "text-danger" : "text-foreground"
                                             }`}
                                         >
                                             {row.value}
@@ -305,7 +305,7 @@ function StudySession({ deckId }: { deckId: string }) {
                             whileHover={{ y: -1 }}
                             whileTap={{ scale: 0.95 }}
                             transition={SPRING}
-                            className={`relative inline-flex h-11 items-center gap-1.5 overflow-hidden rounded-full px-5 text-sm font-semibold text-neutral-800 ${GLASS}`}
+                            className={`relative inline-flex h-11 items-center gap-1.5 overflow-hidden rounded-full px-5 text-sm font-semibold text-foreground ${GLASS}`}
                         >
                             <ArrowLeft className="relative h-4 w-4" />
                             <span className="relative">Back to deck</span>
@@ -330,7 +330,7 @@ function StudySession({ deckId }: { deckId: string }) {
     };
 
     return (
-        <main className="relative flex h-dvh flex-col overflow-hidden bg-neutral-50 text-neutral-900 antialiased">
+        <main className="relative flex h-dvh flex-col overflow-hidden bg-background text-foreground antialiased">
             {/* floats on top, so the card shows through the glass when it scrolls under */}
             <header className="pointer-events-none absolute inset-x-0 top-0 z-20 px-3 pt-3 sm:px-6 sm:pt-5">
                 <motion.div
@@ -344,35 +344,35 @@ function StudySession({ deckId }: { deckId: string }) {
                         aria-label="Back to deck"
                         whileTap={{ scale: 0.88 }}
                         transition={SPRING}
-                        className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full text-neutral-700"
+                        className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full text-secondary"
                     >
                         <ChevronLeft className="relative h-5 w-5" />
                     </MotionLink>
 
                     <div className="min-w-0 flex-1 px-1">
                         <div className="flex items-baseline justify-between gap-2">
-                            <p className="truncate text-sm font-semibold tracking-tight text-neutral-800">
+                            <p className="truncate text-sm font-semibold tracking-tight text-foreground">
                                 {currentDeck?.name}
                             </p>
-                            <p className="flex shrink-0 items-baseline gap-1 text-xs text-neutral-500">
-                                <span className="font-semibold text-neutral-800">
+                            <p className="flex shrink-0 items-baseline gap-1 text-xs text-muted">
+                                <span className="font-semibold text-foreground">
                                     <RollingNumber value={finishedCardCount} />
                                 </span>
                                 of <span className="tabular-nums">{sessionCardCount}</span>
                             </p>
                         </div>
-                        <div className="mt-1.5 flex h-1.5 overflow-hidden rounded-full bg-black/[0.07]">
+                        <div className="mt-1.5 flex h-1.5 overflow-hidden rounded-full bg-foreground/[0.07]">
                             <motion.div
                                 initial={false}
                                 animate={{ width: `${sessionProgressPercent}%` }}
                                 transition={SOFT_SPRING}
-                                className="h-full rounded-full bg-neutral-900"
+                                className="h-full rounded-full bg-accent"
                             />
                             <motion.div
                                 initial={false}
                                 animate={{ width: `${missedProgressPercent}%` }}
                                 transition={SOFT_SPRING}
-                                className="h-full rounded-r-full bg-red-400"
+                                className="h-full rounded-r-full bg-danger"
                             />
                         </div>
                     </div>
@@ -389,7 +389,7 @@ function StudySession({ deckId }: { deckId: string }) {
                                 animate={{ opacity: 1, scale: 1, width: "auto" }}
                                 exit={{ opacity: 0, scale: 0.5, width: 0 }}
                                 transition={SPRING}
-                                className="flex h-7 shrink-0 items-center gap-1 overflow-hidden rounded-full bg-red-500/10 px-2.5 text-sm font-semibold text-red-600"
+                                className="flex h-7 shrink-0 items-center gap-1 overflow-hidden rounded-full bg-danger/10 px-2.5 text-sm font-semibold text-danger"
                             >
                                 <X className="h-3.5 w-3.5 shrink-0" strokeWidth={2.75} />
                                 <RollingNumber value={missedCardIds.length} />
@@ -397,7 +397,7 @@ function StudySession({ deckId }: { deckId: string }) {
                         )}
                     </AnimatePresence>
 
-                    <span className="flex shrink-0 items-center gap-1.5 pl-1 text-sm tabular-nums text-neutral-600">
+                    <span className="flex shrink-0 items-center gap-1.5 pl-1 text-sm tabular-nums text-secondary">
                         <Clock className="h-3.5 w-3.5" />
                         {formatStopwatch(elapsedStudyTimeMs)}
                     </span>
@@ -425,7 +425,7 @@ function StudySession({ deckId }: { deckId: string }) {
                                 animate="center"
                                 exit="exit"
                                 transition={SPRING}
-                                className="relative overflow-hidden rounded-[22px] bg-white ring-1 ring-black/[0.06] shadow-[0_1px_2px_rgba(0,0,0,0.04),0_16px_40px_-16px_rgba(0,0,0,0.14)]"
+                                className="relative overflow-hidden rounded-[22px] bg-surface ring-1 ring-foreground/[0.06] shadow-[0_1px_2px_rgba(0,0,0,0.04),0_16px_40px_-16px_rgba(0,0,0,0.14)]"
                             >
 
                                 <div className="relative px-7 py-9 sm:px-11 sm:py-12">
@@ -444,8 +444,8 @@ function StudySession({ deckId }: { deckId: string }) {
                                                 transition={SOFT_SPRING}
                                                 className="overflow-hidden"
                                             >
-                                                <div className="my-7 border-t-2 border-dashed border-black/[0.08]" />
-                                                <p className="whitespace-pre-wrap text-lg leading-relaxed text-neutral-600">
+                                                <div className="my-7 border-t-2 border-dashed border-foreground/[0.08]" />
+                                                <p className="whitespace-pre-wrap text-lg leading-relaxed text-secondary">
                                                     {currentCard.back}
                                                 </p>
                                             </motion.div>
@@ -463,7 +463,7 @@ function StudySession({ deckId }: { deckId: string }) {
                                             transition={SOFT_SPRING}
                                             className="relative overflow-hidden"
                                         >
-                                            <div className="grid grid-cols-3 divide-x-[3px] divide-black/[0.05] border-t-[3px] border-black/[0.05] bg-neutral-50">
+                                            <div className="grid grid-cols-3 divide-x-[3px] divide-foreground/[0.05] border-t-[3px] border-foreground/[0.05] bg-background">
                                                 {BUTTON_RATINGS.map((rating) => (
                                                     <motion.button
                                                         key={rating}
@@ -475,10 +475,10 @@ function StudySession({ deckId }: { deckId: string }) {
                                                         }}
                                                         className="relative flex h-16 flex-col items-center justify-center gap-0.5 overflow-hidden"
                                                     >
-                                                        <span className="relative text-[15px] font-semibold tracking-tight text-neutral-800">
+                                                        <span className="relative text-[15px] font-semibold tracking-tight text-foreground">
                                                             {BUTTON_LABEL_FOR_RATING[rating]}
                                                         </span>
-                                                        <span className="relative text-xs tabular-nums text-neutral-400">
+                                                        <span className="relative text-xs tabular-nums text-faint">
                                                             {timeUntilDueText(rating)}
                                                         </span>
                                                     </motion.button>
@@ -496,7 +496,7 @@ function StudySession({ deckId }: { deckId: string }) {
                         <motion.div
                             layout
                             transition={SPRING}
-                            className={`flex items-center rounded-full px-4 py-2 text-xs text-neutral-600 ${GLASS}`}
+                            className={`flex items-center rounded-full px-4 py-2 text-xs text-secondary ${GLASS}`}
                         >
                             <AnimatePresence mode="wait" initial={false}>
                                 <motion.span
@@ -533,7 +533,7 @@ function StudySession({ deckId }: { deckId: string }) {
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: 6 }}
                                 transition={SPRING}
-                                className={`mx-auto mb-2 mt-6 hidden items-center gap-1.5 rounded-full px-4 py-2 text-sm text-neutral-600 pointer-coarse:flex ${GLASS}`}
+                                className={`mx-auto mb-2 mt-6 hidden items-center gap-1.5 rounded-full px-4 py-2 text-sm text-secondary pointer-coarse:flex ${GLASS}`}
                             >
                                 <Hand className="h-4 w-4" />
                                 Tap anywhere to reveal the answer

@@ -1,5 +1,29 @@
 @import "tailwindcss";
 
+/* Every color in the app comes from here. A new theme only has to change these. */
+@theme {
+    --color-background: #fafafa;
+    --color-surface: #ffffff;
+    --color-surface-muted: #f5f5f5;
+    --color-control: #e5e5e5;
+    --color-control-hover: #d4d4d4;
+
+    --color-foreground: #171717;
+    --color-secondary: #404040;
+    --color-muted: #737373;
+    --color-faint: #a3a3a3;
+    --color-placeholder: #d4d4d4;
+
+    --color-border: #e5e5e5;
+    --color-border-strong: #737373;
+
+    --color-accent: #171717;
+    --color-accent-hover: #262626;
+    --color-on-accent: #ffffff;
+
+    --color-danger: #ef4444;
+}
+
 @theme {
     /* a spring: shoots slightly past the end, then settles */
     --ease-spring: linear(0, 0.009, 0.035 2.1%, 0.141 4.4%, 0.723 12.9%, 0.938 16.7%, 1.017 19.4%, 1.067, 1.099 24.3%, 1.108 26%, 1.103 27.9%, 1.085 30.2%, 1.008 39.1%, 0.981 43.5%, 0.974 47%, 0.982 55.1%, 1.002 66.1%, 1.004 75.2%, 1);

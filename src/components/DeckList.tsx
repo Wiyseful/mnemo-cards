@@ -63,7 +63,7 @@ export default function DeckList({ isInSidebar = false }: { isInSidebar?: boolea
     return (
         <nav>
             <p
-                className={`mb-1.5 px-2.5 text-[11px] font-medium uppercase tracking-wider text-neutral-400 ${isInSidebar ? "" : "sm:mb-3 sm:px-4 sm:text-xs"}`}
+                className={`mb-1.5 px-2.5 text-[11px] font-medium uppercase tracking-wider text-faint ${isInSidebar ? "" : "sm:mb-3 sm:px-4 sm:text-xs"}`}
             >
                 Decks
             </p>
@@ -78,26 +78,26 @@ export default function DeckList({ isInSidebar = false }: { isInSidebar?: boolea
                         <li
                             key={deck.id}
                             className={`group flex items-center rounded-md ${
-                                isOpenDeck ? "bg-black/[0.06]" : "hover:bg-black/[0.04]"
+                                isOpenDeck ? "bg-foreground/[0.06]" : "hover:bg-foreground/[0.04]"
                             }`}
                         >
                             <Link
                                 href={`/deck/${deck.id}`}
                                 className={`flex min-w-0 flex-1 items-center ${rowTextClass} ${
-                                    isOpenDeck ? "font-medium text-neutral-900" : "text-neutral-700"
+                                    isOpenDeck ? "font-medium text-foreground" : "text-secondary"
                                 }`}
                             >
-                                <Folder className={`${iconClass} shrink-0 fill-current text-neutral-400`} />
+                                <Folder className={`${iconClass} shrink-0 fill-current text-faint`} />
                                 <span className="flex-1 truncate">{deck.name}</span>
 
                                 {isDeckEmpty ? (
-                                    <span className={`${smallTextClass} text-neutral-400`}>empty</span>
+                                    <span className={`${smallTextClass} text-faint`}>empty</span>
                                 ) : (
                                     <>
                                         {/* the sidebar is too narrow for memory %, so only the due count shows there */}
                                         {!isInSidebar && (
                                             <span
-                                                className={`flex items-center gap-1 ${smallTextClass} tabular-nums text-neutral-400`}
+                                                className={`flex items-center gap-1 ${smallTextClass} tabular-nums text-faint`}
                                                 title={`Average chance you'd remember each card in ${MEMORY_FORECAST_DAYS} days`}
                                             >
                                                 <Brain className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -107,7 +107,7 @@ export default function DeckList({ isInSidebar = false }: { isInSidebar?: boolea
 
                                         {dueCardCount > 0 && (
                                             <span
-                                                className={`rounded-full bg-neutral-200/80 px-2 py-0.5 font-medium tabular-nums text-neutral-600 ${
+                                                className={`rounded-full bg-control/80 px-2 py-0.5 font-medium tabular-nums text-secondary ${
                                                     isInSidebar ? "text-[11px]" : "text-[11px] sm:px-2.5 sm:text-sm"
                                                 }`}
                                             >
@@ -121,7 +121,7 @@ export default function DeckList({ isInSidebar = false }: { isInSidebar?: boolea
                             <button
                                 onClick={() => deleteDeck(deck.id)}
                                 aria-label={`Move ${deck.name} to trash`}
-                                className="mr-1.5 rounded p-1 text-neutral-400 opacity-0 hover:bg-black/[0.06] hover:text-neutral-700 group-hover:opacity-100 pointer-coarse:opacity-100"
+                                className="mr-1.5 rounded p-1 text-faint opacity-0 hover:bg-foreground/[0.06] hover:text-secondary group-hover:opacity-100 pointer-coarse:opacity-100"
                             >
                                 <Trash2 className="h-3.5 w-3.5" />
                             </button>
@@ -132,19 +132,19 @@ export default function DeckList({ isInSidebar = false }: { isInSidebar?: boolea
                 <li>
                     <form
                         onSubmit={createDeck}
-                        className={`flex items-center rounded-md hover:bg-black/[0.04] ${rowTextClass}`}
+                        className={`flex items-center rounded-md hover:bg-foreground/[0.04] ${rowTextClass}`}
                     >
-                        <Plus className={`${iconClass} shrink-0 text-neutral-400`} />
+                        <Plus className={`${iconClass} shrink-0 text-faint`} />
                         <input
                             value={newDeckName}
                             onChange={(event) => setNewDeckName(event.target.value)}
                             placeholder="New Deck"
-                            className="min-w-0 flex-1 bg-transparent text-neutral-700 outline-none placeholder:text-neutral-400"
+                            className="min-w-0 flex-1 bg-transparent text-secondary outline-none placeholder:text-faint"
                         />
                         {newDeckName.trim() !== "" && (
                             <button
                                 type="submit"
-                                className="rounded-md bg-neutral-200/80 px-2 py-0.5 text-xs font-medium text-neutral-600 hover:bg-neutral-300/80"
+                                className="rounded-md bg-control/80 px-2 py-0.5 text-xs font-medium text-secondary hover:bg-control-hover/80"
                             >
                                 Add
                             </button>

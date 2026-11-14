@@ -33,7 +33,7 @@ export default function CardWidthSwitcher({
         <div
             role="radiogroup"
             aria-label="Card width"
-            className="flex h-8 shrink-0 items-center gap-0.5 rounded-full bg-black/[0.05] p-0.5"
+            className="flex h-8 shrink-0 items-center gap-0.5 rounded-full bg-foreground/[0.05] p-0.5"
         >
             {WIDTH_OPTIONS.map((width) => {
                 const isSelected = width === selectedWidth;
@@ -58,12 +58,12 @@ export default function CardWidthSwitcher({
                             <motion.span
                                 layoutId="card-width-highlight"
                                 transition={SPRING}
-                                className="absolute inset-0 rounded-full bg-neutral-900 shadow-[0_1px_2px_rgba(0,0,0,0.2)]"
+                                className="absolute inset-0 rounded-full bg-accent shadow-[0_1px_2px_rgba(0,0,0,0.2)]"
                             />
                         )}
                         <span
                             className={`relative h-3 rounded-[3px] border-[1.5px] transition-colors duration-200 ${OUTLINE_WIDTH_CLASS[width]} ${
-                                isSelected ? "border-white" : "border-neutral-400"
+                                isSelected ? "border-on-accent" : "border-faint"
                             }`}
                         />
                     </motion.button>
