@@ -8,7 +8,13 @@ import { Check, ChevronLeft, Play, Plus, Search, Trash2 } from "lucide-react";
 import { useStudyData } from "@/data/StudyDataProvider";
 import { createUnstudiedCard } from "@/data/createUnstudiedCard";
 import { dueCardIdsInOrder } from "@/scheduler/sessionQueue";
-import { averageRecallChance, memoryPercentForecast } from "@/scheduler/averageRecallChance";
+import {
+    averageRecallChance,
+    FORGET_WARNING_DAYS,
+    forgetPercentBy,
+    memoryPercentForecast,
+} from "@/scheduler/averageRecallChance";
+import { MS_PER_DAY } from "@/scheduler/time";
 import { formatDuration } from "@/scheduler/formatDuration";
 import type { Card } from "@/scheduler/types";
 
@@ -52,6 +58,9 @@ export default function DeckPage() {
     const deckCards = cards.filter((card) => card.deckId === deckId && card.deletedAt === null);
     const dueCardCount = dueCardIdsInOrder(deckCards, currentTimeMs).length;
     const deckMemoryPercent = memoryPercentForecast(deckCards, currentTimeMs);
+    const forgetWarningTimeMs = currentTimeMs + FORGET_WARNING_DAYS * MS_PER_DAY;
+    const forgetPercent = forgetPercentBy(deckCards, forgetWarningTimeMs);
+    const forgetWarningDay = new Date(forgetWarningTimeMs).toLocaleDateString("en-US", { weekday: "long" });
 
     const searchTextLowercase = searchText.trim().toLowerCase();
     const visibleCards = deckCards
@@ -194,6 +203,13 @@ export default function DeckPage() {
                                 <span className="font-medium text-foreground">{dueCardCount} due</span> ·{" "}
                                 {deckCards.length} {deckCards.length === 1 ? "card" : "cards"} · {deckMemoryPercent}% retention
                             </p>
+                            {forgetPercent !== null && forgetPercent >= 5 && (
+                                <p className="mt-1 text-sm text-muted">
+                                    Without studying, you&apos;d forget{" "}
+                                    <span className="font-medium text-danger">{forgetPercent}%</span> of what you know
+                                    here by {forgetWarningDay}.
+                                </p>
+                            )}
                         </div>
 
                         <Link

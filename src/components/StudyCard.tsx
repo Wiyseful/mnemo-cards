@@ -18,16 +18,14 @@ export const BUTTON_LABEL_FOR_RATING: Record<(typeof BUTTON_RATINGS)[number], st
     Easy: "Instant",
 };
 
-export type CardExit = Rating | "Skip" | "Trash";
+export type CardExit = Rating;
 
 // where a rated card flies. same directions as the swipes will be
-const EXIT_MOTION: Record<CardExit, { x: number; y: number; scale?: number }> = {
+const EXIT_MOTION: Record<CardExit, { x: number; y: number }> = {
     Again: { x: -1200, y: 120 },
     Hard: { x: 0, y: -1000 },
     Good: { x: 0, y: -1000 },
     Easy: { x: 1200, y: 120 },
-    Skip: { x: 0, y: -60, scale: 0.96 },
-    Trash: { x: 0, y: 320, scale: 0.6 },
 };
 
 const SWIPE_DISTANCE_PX = 100;
@@ -50,26 +48,37 @@ function ratingForSwipe(info: PanInfo): Rating | null {
 const CARD_VARIANTS: Variants = {
     enter: { opacity: 0, y: 28, scale: 0.96 },
     center: { opacity: 1, x: 0, y: 0, scale: 1 },
-    exit: (lastExit: CardExit | null) => ({
-        ...(lastExit ? EXIT_MOTION[lastExit] : { y: -40 }),
-        opacity: [1, 1, 0],
-        transition: {
-            duration: 0.3,
-            ease: [0.55, 0, 0.8, 0.2],
-            opacity: { duration: 0.3, times: [0, 0.85, 1] },
-        },
-    }),
+    exit: (lastExit: CardExit | null) =>
+        lastExit
+            ? {
+                  ...EXIT_MOTION[lastExit],
+                  opacity: [1, 1, 0],
+                  transition: {
+                      duration: 0.3,
+                      ease: [0.55, 0, 0.8, 0.2],
+                      opacity: { duration: 0.3, times: [0, 0.85, 1] },
+                  },
+              }
+            : { opacity: 0, transition: { duration: 0 } },
 };
 
 type StudyCardProps = {
     card: Card;
     isAnswerShown: boolean;
+    isEnterAnimated: boolean;
     onRate: (rating: Rating) => void;
     dragControls: DragControls;
     ref?: Ref<HTMLDivElement>;
 };
 
-export default function StudyCard({ card, isAnswerShown, onRate, dragControls, ref }: StudyCardProps) {
+export default function StudyCard({
+    card,
+    isAnswerShown,
+    isEnterAnimated,
+    onRate,
+    dragControls,
+    ref,
+}: StudyCardProps) {
     const cardPositionX = useMotionValue(0);
     const cardPositionY = useMotionValue(0);
     const cardTilt = useTransform(cardPositionX, [-600, 600], [-12, 12]);
@@ -90,7 +99,7 @@ export default function StudyCard({ card, isAnswerShown, onRate, dragControls, r
             ref={ref}
             style={{ x: cardPositionX, y: cardPositionY, rotate: cardTilt }}
             variants={CARD_VARIANTS}
-            initial="enter"
+            initial={isEnterAnimated ? "enter" : false}
             animate="center"
             exit="exit"
             transition={SPRING}
