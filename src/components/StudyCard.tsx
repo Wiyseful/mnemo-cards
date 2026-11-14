@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { AnimatePresence, motion, useMotionValue, useTransform } from "motion/react";
 import type { DragControls, PanInfo, Variants } from "motion/react";
 import type { Ref } from "react";
@@ -17,12 +18,16 @@ export const BUTTON_LABEL_FOR_RATING: Record<(typeof BUTTON_RATINGS)[number], st
     Easy: "Instant",
 };
 
+export type CardExit = Rating | "Skip" | "Trash";
+
 // where a rated card flies. same directions as the swipes will be
-const EXIT_MOTION: Record<Rating, { x: number; y: number }> = {
+const EXIT_MOTION: Record<CardExit, { x: number; y: number; scale?: number }> = {
     Again: { x: -1200, y: 120 },
     Hard: { x: 0, y: -1000 },
     Good: { x: 0, y: -1000 },
     Easy: { x: 1200, y: 120 },
+    Skip: { x: 0, y: -60, scale: 0.96 },
+    Trash: { x: 0, y: 320, scale: 0.6 },
 };
 
 const SWIPE_DISTANCE_PX = 100;
@@ -45,8 +50,8 @@ function ratingForSwipe(info: PanInfo): Rating | null {
 const CARD_VARIANTS: Variants = {
     enter: { opacity: 0, y: 28, scale: 0.96 },
     center: { opacity: 1, x: 0, y: 0, scale: 1 },
-    exit: (lastRating: Rating | null) => ({
-        ...(lastRating ? EXIT_MOTION[lastRating] : { y: -40 }),
+    exit: (lastExit: CardExit | null) => ({
+        ...(lastExit ? EXIT_MOTION[lastExit] : { y: -40 }),
         opacity: [1, 1, 0],
         transition: {
             duration: 0.3,
@@ -55,12 +60,6 @@ const CARD_VARIANTS: Variants = {
         },
     }),
 };
-
-function timeUntilDueText(card: Card, rating: Rating): string {
-    const currentTimeMs = Date.now();
-    const cardIfRated = applyRating(card, rating, currentTimeMs);
-    return formatDuration(cardIfRated.dueAt - currentTimeMs);
-}
 
 type StudyCardProps = {
     card: Card;
@@ -74,7 +73,17 @@ export default function StudyCard({ card, isAnswerShown, onRate, dragControls, r
     const cardPositionX = useMotionValue(0);
     const cardPositionY = useMotionValue(0);
     const cardTilt = useTransform(cardPositionX, [-600, 600], [-12, 12]);
-    const forgotTintOpacity = useTransform(cardPositionX, [-100, 0], [0.3, 0]);
+    const forgotTintOpacity = useTransform(cardPositionX, [-100, 0], [0.1, 0]);
+
+    const timeUntilDueTextForRating = useMemo(() => {
+        const currentTimeMs = Date.now();
+        return Object.fromEntries(
+            BUTTON_RATINGS.map((rating) => [
+                rating,
+                formatDuration(applyRating(card, rating, currentTimeMs).dueAt - currentTimeMs),
+            ]),
+        ) as Record<(typeof BUTTON_RATINGS)[number], string>;
+    }, [card]);
 
     return (
         <motion.div
@@ -112,8 +121,8 @@ export default function StudyCard({ card, isAnswerShown, onRate, dragControls, r
                     {isAnswerShown && (
                         <motion.div
                             key="answer"
-                            initial={{ height: 0, opacity: 0, filter: "blur(6px)" }}
-                            animate={{ height: "auto", opacity: 1, filter: "blur(0px)" }}
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: "auto", opacity: 1 }}
                             exit={{ height: 0, opacity: 0 }}
                             transition={QUICK_SPRING}
                             className="overflow-hidden"
@@ -153,7 +162,7 @@ export default function StudyCard({ card, isAnswerShown, onRate, dragControls, r
                                         {BUTTON_LABEL_FOR_RATING[rating]}
                                     </span>
                                     <span className="relative text-xs tabular-nums text-faint">
-                                        {timeUntilDueText(card, rating)}
+                                        {timeUntilDueTextForRating[rating]}
                                     </span>
                                 </motion.button>
                             ))}
