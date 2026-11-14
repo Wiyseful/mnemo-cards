@@ -1,8 +1,8 @@
 "use client";
 
-import { AnimatePresence, motion } from "motion/react";
-import type { Ref } from "react";
+import { AnimatePresence, motion, useMotionValue, useTransform } from "motion/react";
 import type { DragControls, PanInfo, Variants } from "motion/react";
+import type { Ref } from "react";
 import { QUICK_SPRING, SPRING } from "@/components/springs";
 import { applyRating } from "@/scheduler/applyRating";
 import { formatDuration } from "@/scheduler/formatDuration";
@@ -18,11 +18,11 @@ export const BUTTON_LABEL_FOR_RATING: Record<(typeof BUTTON_RATINGS)[number], st
 };
 
 // where a rated card flies. same directions as the swipes will be
-const EXIT_MOTION: Record<Rating, { x: number; y: number; rotate: number }> = {
-    Again: { x: -1200, y: 120, rotate: -30 },
-    Hard: { x: 0, y: -1000, rotate: 0 },
-    Good: { x: 0, y: -1000, rotate: 0 },
-    Easy: { x: 1200, y: 120, rotate: 30 },
+const EXIT_MOTION: Record<Rating, { x: number; y: number }> = {
+    Again: { x: -1200, y: 120 },
+    Hard: { x: 0, y: -1000 },
+    Good: { x: 0, y: -1000 },
+    Easy: { x: 1200, y: 120 },
 };
 
 const SWIPE_DISTANCE_PX = 100;
@@ -44,7 +44,7 @@ function ratingForSwipe(info: PanInfo): Rating | null {
 
 const CARD_VARIANTS: Variants = {
     enter: { opacity: 0, y: 28, scale: 0.96 },
-    center: { opacity: 1, x: 0, y: 0, scale: 1, rotate: 0 },
+    center: { opacity: 1, x: 0, y: 0, scale: 1 },
     exit: (lastRating: Rating | null) => ({
         ...(lastRating ? EXIT_MOTION[lastRating] : { y: -40 }),
         opacity: [1, 1, 0],
@@ -71,9 +71,15 @@ type StudyCardProps = {
 };
 
 export default function StudyCard({ card, isAnswerShown, onRate, dragControls, ref }: StudyCardProps) {
+    const cardPositionX = useMotionValue(0);
+    const cardPositionY = useMotionValue(0);
+    const cardTilt = useTransform(cardPositionX, [-600, 600], [-12, 12]);
+    const forgotTintOpacity = useTransform(cardPositionX, [-100, 0], [0.3, 0]);
+
     return (
         <motion.div
             ref={ref}
+            style={{ x: cardPositionX, y: cardPositionY, rotate: cardTilt }}
             variants={CARD_VARIANTS}
             initial="enter"
             animate="center"
@@ -92,6 +98,10 @@ export default function StudyCard({ card, isAnswerShown, onRate, dragControls, r
             }}
             className="relative overflow-hidden rounded-[22px] bg-surface ring-1 ring-foreground/[0.06] shadow-[0_1px_2px_rgba(0,0,0,0.04),0_16px_40px_-16px_rgba(0,0,0,0.14)]"
         >
+            <motion.div
+                style={{ opacity: forgotTintOpacity }}
+                className="pointer-events-none absolute inset-0 z-10 bg-danger"
+            />
             <div className="relative px-7 py-9 sm:px-11 sm:py-12">
                 <p className="whitespace-pre-wrap text-[22px] font-semibold leading-snug tracking-tight sm:text-2xl">
                     {card.front}
